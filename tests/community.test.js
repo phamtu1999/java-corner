@@ -207,6 +207,10 @@ test('accounts, sessions, password changes and origin protection',async t => {
 });
 test('public catalog, private uploads, history, permissions and archive validation',async t => {
   const {client,db,dataDir,base}=await setup(t); const admin=client(), owner=client(), other=client(), guest=client();
+  const home=await fetch(base+'/',{redirect:'manual'});
+  assert.equal(home.status,200);
+  assert.equal(home.headers.get('location'),null);
+  assert.match(home.headers.get('cache-control'),/no-cache/);
   const manager=await register(admin,'admin'); (await db.prepare("UPDATE users SET role='admin' WHERE id=?").run(manager.id));
   await register(owner,'owner'); await register(other,'other');
   const category=await admin('/categories',{method:'POST',body:{name:'Nhập vai'}}); assert.equal(category.status,201);
@@ -219,7 +223,9 @@ test('public catalog, private uploads, history, permissions and archive validati
   assert.equal(privateIcon.status,200);
   assert.match(privateIcon.headers.get('cache-control'),/^private/);
   assert.deepEqual(Buffer.from(privateIcon.data),Buffer.from('iVBORw0KGgo=','base64'));
-  assert.equal((await guest(`/games/${published.data.id}/icon`)).status,200);
+  const publicIcon=await guest(`/games/${published.data.id}/icon`);
+  assert.equal(publicIcon.status,200);
+  assert.equal(publicIcon.headers.get('cache-control'),'public, max-age=300, s-maxage=300, must-revalidate');
   await db.prepare('UPDATE games SET hidden=true WHERE id=?').run(published.data.id);
   assert.equal((await guest(`/games/${published.data.id}/icon`)).status,404);
   assert.equal((await admin(`/games/${published.data.id}/icon`)).status,200);

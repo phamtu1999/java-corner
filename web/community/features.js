@@ -5,20 +5,6 @@ export async function enhanceFeatures({root,r,user,api,esc,openModal,notify,refr
     openModal(`<h2 id="modal-title">${esc(title)}</h2><form class="stack feature-form">${fields}<p class="form-error" role="alert"></p><button class="primary">Lưu</button></form>`);
     const form=document.querySelector('.feature-form');form.onsubmit=async e=>{e.preventDefault();const b=form.querySelector('button');b.disabled=true;try{await save(Object.fromEntries(new FormData(form)));document.querySelector('#modal').close();notify('Đã lưu.');await refresh();}catch(error){form.querySelector('.form-error').textContent=error.message;}finally{b.disabled=false;}};
   };
-  if(['games','history','mine'].includes(r.view)){
-    const form=root.querySelector('form[data-form="filter"]');
-    if(form){
-      const [screens,publishers]=await Promise.all([api('/game-screens'),api('/publishers')]);
-      for(const [name,label,values] of [['screen','Màn hình',screens.map(s=>[s.screen,s.screen==='unknown'?'Chưa rõ màn hình':s.screen])],['publisher','Hãng phát hành',publishers.map(p=>[p.publisher,p.publisher])]]){
-        const select=document.createElement('select');select.name=name;select.setAttribute('aria-label',label);select.innerHTML=`<option value="">Tất cả ${label.toLowerCase()}</option>`+values.map(([value,text])=>`<option value="${esc(value)}">${esc(text)}</option>`).join('');select.value=r.query.get(name)||'';form.insertBefore(select,form.querySelector('button'));
-      }
-      if(r.query.get('favorite')==='1'){const input=document.createElement('input');input.type='hidden';input.name='favorite';input.value='1';form.append(input);root.querySelector('.heading h1').textContent='Game yêu thích';}
-    }
-    if(r.view==='games'&&user&&!r.query.size){
-      const history=await api('/games?scope=history');
-      if(history.items.length){const section=panel('Tiếp tục chơi');section.innerHTML+=`<div class="continue-games">${history.items.slice(0,4).map(g=>`<a class="button" href="/library?game=${encodeURIComponent(g.id)}">▶ ${esc(g.title)}</a>`).join('')}</div>`;root.querySelector('.heading').after(section);}
-    }
-  }
   if(r.view==='game'){
     const [g,social]=await Promise.all([api(`/games/${r.id}`),api(`/games/${r.id}/social`)]);
     const tools=document.createElement('div');tools.className='feature-toolbar';

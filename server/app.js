@@ -137,7 +137,12 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
     revokeRelay(db,{userId:user.id});
     await session(req, res, user);
   });
-  app.get('/api/categories', async (req, res) => res.json((await db.prepare(`SELECT c.*,COUNT(g.id) AS games FROM categories c LEFT JOIN games g ON g.category_id=c.id AND g.visibility='public' AND g.deleted_at IS NULL GROUP BY c.id ORDER BY c.name`).all())));
+  app.get('/api/categories', async (req, res) => {
+    const started=performance.now();
+    const categories=await db.prepare(`SELECT c.*,COUNT(g.id) AS games FROM categories c LEFT JOIN games g ON g.category_id=c.id AND g.visibility='public' AND g.deleted_at IS NULL GROUP BY c.id ORDER BY c.name`).all();
+    res.set('Server-Timing',`db;dur=${(performance.now()-started).toFixed(1)}`);
+    res.json(categories);
+  });
   app.post('/api/categories', member, admin, async (req, res) => {
     const id = randomUUID(), name = field(req.body.name, 'Tên thể loại', 2, 40);
     if ((await db.prepare('SELECT id FROM categories WHERE name=?').get(name))) fail(409, 'Thể loại đã tồn tại.');
@@ -239,11 +244,11 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
     res.json({...game, variants, last_played_id:lastPlayedId});
   });
   app.get('/api/games/:id/icon', async (req, res) => {
-    const row = await db.prepare("SELECT icon_data FROM games WHERE id=? AND deleted_at IS NULL AND (visibility='public' OR owner_id=?) AND (NOT hidden OR ?)").get(req.params.id, req.user?.id || '', req.user?.role === 'admin');
+    const row = await db.prepare("SELECT icon_data,visibility,hidden FROM games WHERE id=? AND deleted_at IS NULL AND (visibility='public' OR owner_id=?) AND (NOT hidden OR ?)").get(req.params.id, req.user?.id || '', req.user?.role === 'admin');
     if (!row) fail(404, 'Không tìm thấy game hoặc bạn không có quyền truy cập.');
     const match = /^data:image\/(png|gif);base64,([A-Za-z0-9+/=]+)$/.exec(row?.icon_data || '');
     if (!match) return res.status(404).end();
-    res.set('Cache-Control', 'private, max-age=3600');
+    res.set('Cache-Control', row.visibility === 'public' && !row.hidden ? 'public, max-age=300, s-maxage=300, must-revalidate' : 'private, max-age=3600');
     res.type('image/' + match[1]).send(Buffer.from(match[2], 'base64'));
   });
   app.get('/api/games/:id/file', async (req, res) => {
@@ -421,7 +426,7 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
   app.use('/api', async (req, res) => res.status(404).json({ error: 'Không tìm thấy chức năng.' }));
   const staticConfig = JSON.parse(readFileSync(resolve(root, 'web/serve.json')));
   // Canonical page URLs retain query parameters used by the emulator.
-  const pageRedirects = { '/':'/games', '/index.html':'/games', '/emulator':'/library', '/emulator/':'/library', '/emulator/index.html':'/library', '/emulator/run.html':'/play' };
+  const pageRedirects = { '/index.html':'/games', '/emulator':'/library', '/emulator/':'/library', '/emulator/index.html':'/library', '/emulator/run.html':'/play' };
   app.use((req, res, next) => {
     const target = pageRedirects[req.path];
     if (target && ['GET','HEAD'].includes(req.method)) return res.redirect(302, target + (req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : ''));
@@ -431,9 +436,15 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
     res.set('Cache-Control','no-cache');
     res.sendFile(resolve(root, 'web/emulator', req.path === '/library' ? 'index.html' : 'run.html'));
   });
-  app.get(/^\/(?:games|forum|history|mine|admin|login|register|account|game\/[^/]+|post\/[^/]+)\/?$/, (req, res) => {
+  app.get(/^\/(?:|games|forum|history|mine|admin|login|register|account|game\/[^/]+|post\/[^/]+)\/?$/, (req, res) => {
     res.set('Cache-Control', 'no-cache');
     res.sendFile(resolve(root, 'web/index.html'));
+  });
+  app.use((req,res,next)=>{
+    if(['GET','HEAD'].includes(req.method)&&/\.(?:css|js|mjs|wasm|svg|png|gif|webp|woff2?|jar)$/i.test(req.path)){
+      res.set('Cache-Control',req.query.v?'public, max-age=31536000, immutable':'public, max-age=3600, stale-while-revalidate=86400');
+    }
+    next();
   });
   app.use(async (req, res) => handler(req, res, { ...staticConfig, public: resolve(root, 'web'), directoryListing: false }));
   app.use((error, req, res, next) => {

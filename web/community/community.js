@@ -1,14 +1,14 @@
 import {checkUpload} from '/ui/deployment.js';
 import {setupDraft, clearDraft, setupTopicSearch} from './writing.js';
-import { decorateAccount } from '../ui/site.js?v=20260917-6';
-import {enhanceFeatures} from './features.js?v=20260917-2';
+import { decorateAccount } from '../ui/site.js?v=20260918-1';
+import {enhanceFeatures} from './features.js?v=20260918-1';
 import {enhanceExtras} from './extras.js?v=20260917-2';
 import {setupHeaderTools,openAccount} from '../ui/header-tools.js?v=20260917-6';
 import {enhanceSafety} from './safety-features.js';
 import {enhanceDiscovery} from './discovery-features.js';
 const $ = s => document.querySelector(s);
 const content = $('#content'), modal = $('#modal');
-const state = { user: null, categories: [], request: 0 };
+const state = { user: null, categories: [], request: 0, initialListing: null };
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const date = value => new Date(value.replace(' ', 'T') + 'Z').toLocaleDateString('vi-VN', { day:'numeric', month:'short', year:'numeric' });
 const size = bytes => `${(bytes / 1048576).toFixed(1)} MB`;
@@ -17,6 +17,7 @@ const button = (action, text, id = '', css = '') => `<button type="button" data-
 const empty = (title, text, extra = '') => `<div class="empty"><strong>${title}</strong>${text}${extra}</div>`;
 const heading = (title, subtitle, actions = '') => `<div class="heading"><div><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div><div class="actions">${actions}</div></div>`;
 const categoryOptions = selected => `<option value="">Tất cả thể loại</option>${state.categories.map(c => `<option value="${c.id}" ${c.id === selected ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}`;
+const referenceOptions = (items, field, selected, emptyLabel, label = value => value) => `<option value="">${emptyLabel}</option>${items.map(item => `<option value="${esc(item[field])}" ${item[field] === selected ? 'selected' : ''}>${esc(label(item[field]))}</option>`).join('')}`;
 const iconPaths = {
   game: '<rect x="3" y="7" width="18" height="12" rx="4"/><path d="M7 10v6m-3-3h6m5-2h.01M18 15h.01M10 7V4h4"/>',
   chat: '<path d="M4 3h16v14H9l-5 4Z"/><path d="M8 8h8m-8 4h5"/>',
@@ -61,6 +62,28 @@ function decorateContent(root, view = route().view) {
   }
 }
 function route() { const [path, query] = ((location.pathname.slice(1) || 'games') + location.search).split('?'); const [view, id] = path.split('/'); return { view, id, query: new URLSearchParams(query) }; }
+function listingQuery(r) {
+  const query = new URLSearchParams(r.query);
+  query.set('scope', r.view === 'games' ? (r.query.get('favorite') === '1' ? 'favorites' : 'public') : r.view);
+  return query;
+}
+async function loadListing(r, includeHistory = true) {
+  const historyRequest = includeHistory && r.view === 'games' && state.user && !r.query.size
+    ? api('/games?scope=history')
+    : Promise.resolve({items:[]});
+  const [categories, data, screens, publishers, recent] = await Promise.all([
+    api('/categories'),
+    api(`/games?${listingQuery(r)}`),
+    api('/game-screens').catch(() => []),
+    api('/publishers').catch(() => []),
+    historyRequest.catch(() => ({items:[]}))
+  ]);
+  return {categories, data, screens, publishers, recent};
+}
+function continuePanel(items = []) {
+  if (!items.length) return '';
+  return `<section class="panel feature-panel"><h2>Tiếp tục chơi</h2><div class="continue-games">${items.slice(0,4).map(g => `<a class="button" href="/library?game=${encodeURIComponent(g.id)}">▶ ${esc(g.title)}</a>`).join('')}</div></section>`;
+}
 async function api(path, options = {}) {
   const headers = { 'X-Requested-With': 'JavaCommunity', ...options.headers };
   if (options.body && !(options.body instanceof FormData)) { headers['Content-Type'] = 'application/json'; options.body = JSON.stringify(options.body); }
@@ -237,20 +260,28 @@ async function render() {
   }
   account();
   document.querySelectorAll('[data-nav]').forEach(a => { if (a.dataset.nav === r.view || (r.view === 'game' && a.dataset.nav === 'games') || (r.view === 'post' && a.dataset.nav === 'forum')) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+  const listing = ['games','history','mine'].includes(r.view) && (state.user || (r.view === 'games' && r.query.get('favorite') !== '1'));
   content.setAttribute('aria-busy', 'true');
-  content.innerHTML = '<p class="muted" role="status">Đang tải…</p>';
+  content.innerHTML = listing && window.javaListingSkeleton
+    ? window.javaListingSkeleton()
+    : '<p class="muted" role="status">Đang tải…</p>';
   try {
-    const listing = ['games','history','mine'].includes(r.view) && (state.user || (r.view === 'games' && r.query.get('favorite') !== '1'));
     if (!listing) state.categories = await api('/categories');
     let html;
     if (['games','history','mine'].includes(r.view)) {
       const config = { games:['Kho game','Game công khai, phân loại theo thể loại.'], history:['Đã chơi','Chọn một game để quay lại. Tiến trình game vẫn lưu trên trình duyệt.'], mine:['Game của tôi','Kho riêng của bạn. Người khác không thể xem hoặc tải game tại đây.'] }[r.view];
       if ((r.view !== 'games' || r.query.get('favorite')==='1') && !state.user) html = heading(...config) + empty('Đăng nhập để mở thư viện', 'Danh sách game và lịch sử chơi được gắn với tài khoản của bạn.', button('login','Đăng nhập','','primary'));
       else {
-        const q = new URLSearchParams(r.query); q.set('scope', r.view === 'games' ? (r.query.get('favorite')==='1'?'favorites':'public') : r.view);
-        const [categories, data] = await Promise.all([api('/categories'), api(`/games?${q}`)]);
+        let listingData = state.initialListing;
+        state.initialListing = null;
+        if (!listingData) listingData = await loadListing(r);
+        else if (state.user && !r.query.size) listingData.recent = await api('/games?scope=history').catch(() => ({items:[]}));
+        const {categories, data, screens, publishers, recent} = listingData;
         state.categories = categories;
-        html = heading(...config, button('upload','Tải game riêng','','primary')) + `<form data-form="filter" class="filters"><input name="q" type="search" placeholder="Tìm tên game…" aria-label="Tìm game" value="${esc(r.query.get('q'))}"><select name="category" aria-label="Thể loại">${categoryOptions(r.query.get('category'))}</select><button>Tìm game</button></form><div class="section-label"><span>${data.total} game${r.view === 'mine' ? ' · Chỉ mình bạn' : ''}</span><a href="/library">Game trên máy</a></div>` + (data.items.length ? gameCards(data.items) : empty(r.query.get('q') || r.query.get('category') ? 'Không tìm thấy game' : 'Chưa có game', r.view === 'games' ? 'Admin có thể thêm game theo thể loại. Bạn cũng có thể tải game riêng để chơi.' : r.view === 'history' ? 'Game sẽ xuất hiện ở đây sau khi mở màn hình chơi.' : 'Chọn game .jar từ máy, lưu vào kho riêng rồi chơi.')) + pager(data, r);
+        const favorite = r.query.get('favorite') === '1';
+        if (favorite) config[0] = 'Game yêu thích';
+        const filters = `<form data-form="filter" class="filters"><input name="q" type="search" placeholder="Tìm tên game…" aria-label="Tìm game" value="${esc(r.query.get('q'))}"><select name="category" aria-label="Thể loại">${categoryOptions(r.query.get('category'))}</select><select name="screen" aria-label="Màn hình">${referenceOptions(screens,'screen',r.query.get('screen'),'Tất cả màn hình',value => value === 'unknown' ? 'Chưa rõ màn hình' : value)}</select><select name="publisher" aria-label="Hãng phát hành">${referenceOptions(publishers,'publisher',r.query.get('publisher'),'Tất cả hãng phát hành')}</select>${favorite ? '<input type="hidden" name="favorite" value="1">' : ''}<button>Tìm game</button></form>`;
+        html = heading(...config, button('upload','Tải game riêng','','primary')) + continuePanel(recent.items) + filters + `<div class="section-label"><span>${data.total} game${r.view === 'mine' ? ' · Chỉ mình bạn' : ''}</span><a href="/library">Game trên máy</a></div>` + (data.items.length ? gameCards(data.items) : empty(['q','category','screen','publisher'].some(name => r.query.get(name)) ? 'Không tìm thấy game' : 'Chưa có game', r.view === 'games' ? 'Admin có thể thêm game theo thể loại. Bạn cũng có thể tải game riêng để chơi.' : r.view === 'history' ? 'Game sẽ xuất hiện ở đây sau khi mở màn hình chơi.' : 'Chọn game .jar từ máy, lưu vào kho riêng rồi chơi.')) + pager(data, r);
       }
     } else if (r.view === 'game') {
       const g = await api(`/games/${r.id}`), discussions = g.visibility === 'public' ? await api(`/posts?game=${g.id}&page=${r.query.get('page') || 1}`) : null;
@@ -392,4 +423,13 @@ document.addEventListener('submit', async e => {
 });
 // Keep previously shared hash links working.
 if (/^#(?:games|forum|history|mine|admin|game|post|login|register|account)(?:[/?]|$)/.test(location.hash)) history.replaceState(null, '', '/' + location.hash.slice(1));
-try { state.user=(await api('/me')).user; await render(); } catch (error) { content.innerHTML=`<div class="panel"><h1>Chưa kết nối được máy chủ</h1><p>${esc(error.message)}</p><p>Chạy máy chủ mới bằng <code>npm start</code>, sau đó tải lại trang.</p><a class="button" href="/library">Mở giả lập cũ</a></div>`; }
+try {
+  const initialRoute = route();
+  const listingRequest = initialRoute.view === 'games' && initialRoute.query.get('favorite') !== '1'
+    ? loadListing(initialRoute, false)
+    : Promise.resolve(null);
+  const [session, initialListing] = await Promise.all([api('/me'), listingRequest]);
+  state.user = session.user;
+  state.initialListing = initialListing;
+  await render();
+} catch (error) { content.innerHTML=`<div class="panel"><h1>Chưa kết nối được máy chủ</h1><p>${esc(error.message)}</p><p>Chạy máy chủ mới bằng <code>npm start</code>, sau đó tải lại trang.</p><a class="button" href="/library">Mở giả lập cũ</a></div>`; content.removeAttribute('aria-busy'); }

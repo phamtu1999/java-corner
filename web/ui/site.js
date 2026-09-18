@@ -47,6 +47,7 @@ if (header) {
     link.innerHTML = `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${navIcons[link.dataset.nav]}</svg>`;
     link.append(label);
   });
+  header.removeAttribute('aria-busy');
   if (page !== 'community') {
     header.querySelector('[data-nav="local"]').setAttribute('aria-current', 'page');
     const account = document.getElementById('account');

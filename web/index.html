@@ -4,18 +4,33 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Java Corner · Cộng đồng game Java</title>
   <link rel="icon" href="/ui/favicon.svg">
-  <link rel="stylesheet" href="/ui/site.css?v=20260917-5">
-  <link rel="stylesheet" href="/community/community.css?v=20260917-1">
+  <link rel="stylesheet" href="/ui/site.css?v=20260918-1">
+  <link rel="stylesheet" href="/community/community.css?v=20260918-1">
 </head>
 <body data-page="community">
   <a class="skip" href="#content">Đến nội dung</a>
-  <header id="site-header"></header>
+  <header id="site-header" class="site-header site-header-placeholder" aria-busy="true"></header>
   <div class="shell">
-    <main id="content" tabindex="-1"><p class="empty">Đang mở cộng đồng…</p></main>
+    <main id="content" tabindex="-1" aria-busy="true"></main>
   </div>
   <footer id="site-footer"></footer>
   <div id="notice" role="status" hidden></div>
   <dialog id="modal" aria-labelledby="modal-title"><button id="close-modal" class="close" aria-label="Đóng">×</button><div id="modal-body"></div></dialog>
-  <script type="module" src="/community/community.js?v=20260917-6"></script>
+  <script>
+    (() => {
+      const content = document.getElementById('content');
+      const view = (location.pathname.split('/')[1] || 'games');
+      window.javaListingSkeleton = () => `<div class="listing-skeleton" role="status" aria-label="Đang tải kho game">
+        <div class="skeleton-heading"><span></span><span></span></div>
+        <div class="skeleton-filters"><span></span><span></span><span></span><span></span></div>
+        <div class="skeleton-label"></div>
+        <div class="skeleton-games">${'<div class="skeleton-game"><i></i><span><b></b><em></em><small></small></span><u></u></div>'.repeat(24)}</div>
+      </div>`;
+      content.innerHTML = view === 'games'
+        ? window.javaListingSkeleton()
+        : '<p class="empty" role="status">Đang mở cộng đồng…</p>';
+    })();
+  </script>
+  <script type="module" src="/community/community.js?v=20260918-1"></script>
 </body>
 </html>

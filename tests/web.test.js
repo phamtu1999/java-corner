@@ -18,7 +18,7 @@ test('game URLs retain parameters, binary ranges work, keypad keys are mapped', 
     for (const asset of ['/ui/site.css?v=20260916-3', '/community/community.css?v=20260916-3', '/emulator/launcher.css?v=20260916-3', '/ui/site.js?v=20260916-3']) {
       const response = await fetch(base + asset);
       assert.equal(response.status, 200);
-      assert.match(response.headers.get('cache-control'), /must-revalidate/);
+      assert.match(response.headers.get('cache-control'), /max-age=3600/);
       await response.arrayBuffer();
     }
     const manager = await fetch(`${base}/emulator/index.html`);
