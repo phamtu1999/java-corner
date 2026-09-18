@@ -8,6 +8,7 @@
 body[data-page="community"],body[data-page="local"]{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
 body:is([data-page="community"],[data-page="local"])>.site-header,body:is([data-page="community"],[data-page="local"])>.site-footer{width:100%;flex:none;margin:0 auto}
 body[data-page="community"]>.shell,body[data-page="local"]>main,body[data-page="local"]>#loading{width:100%;max-width:var(--site-width);flex:1;margin:0 auto;background:#fff}
+body[data-page="local"]:has(>main[aria-busy="true"])>#loading{flex:none}
 html:has(body:is([data-page="community"],[data-page="local"])){scrollbar-gutter:stable both-edges}
 
 /* Shared navigation icons keep their labels visible at every screen size. */
