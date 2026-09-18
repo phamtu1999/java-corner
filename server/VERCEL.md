@@ -18,7 +18,7 @@ Thêm Environment Variables ở **Production**:
 | --- | --- |
 | `NODE_ENV` | `production` |
 | `SITE_ORIGIN` | URL HTTPS chính xác của website, không có `/` cuối, ví dụ `https://java-corner.vercel.app` |
-| `DATABASE_URL` | Supabase **Session pooler**, cổng **5432**, có mật khẩu database |
+| `DATABASE_URL` | Supabase **Transaction pooler**, cổng **6543**, có mật khẩu database |
 | `SUPABASE_URL` | URL project Supabase |
 | `SUPABASE_SECRET_KEY` | Secret key phía server, không dùng tiền tố `PUBLIC` hay `NEXT_PUBLIC` |
 | `SUPABASE_STORAGE_BUCKET` | Bucket JAR công khai hiện có, thường là `game` |
@@ -28,7 +28,10 @@ Thêm Environment Variables ở **Production**:
 Không cần đặt `PORT`, `DATA_DIR`, hoặc `GAME_STORAGE` trên Vercel. JAR mới được lưu
 trên Supabase tự động; `/tmp` chỉ dùng khi xác thực tệp. Các migration chạy riêng
 bằng `npm run db:migrate` từ máy quản trị, không chạy trong build mỗi deployment.
-Giữ chế độ session pooler vì ứng dụng đặt ngữ cảnh người dùng trên connection.
+Ngữ cảnh người dùng và search_path được đặt bằng SET LOCAL trong mỗi transaction,
+không truyền sang request khác. Trên Vercel, URI shared pooler Supabase còn dùng
+cổng 5432 được tự chuyển sang 6543; hostname và thông tin xác thực giữ nguyên.
+Pool dùng hook `attachDatabasePool` để giải phóng kết nối trước khi Function nghỉ.
 
 Preview cần `SITE_ORIGIN` riêng khớp URL preview; dùng database/bucket thử nghiệm
 nếu cần thử thay đổi dữ liệu. Không đặt `TRUST_PROXY=true` tùy tiện; rate limit

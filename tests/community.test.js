@@ -4,7 +4,7 @@ import { mkdtemp, rm, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { openDatabase, migrateDatabase } from '../server/db.js';
+import { openDatabase, migrateDatabase, databaseActor } from '../server/db.js';
 import { createApp } from '../server/app.js';
 
 const jar = Buffer.from('UEsDBBQAAAAIAIyUMF0C6Ce+OgAAAGUAAAAUAAAATUVUQS1JTkYvTUFOSUZFU1QuTUbzTczLTEstLtENSy0qzszPs1Iw1DPg8vV0yUkt0fVLzE21UggBSsNEDCFcHR1kQWxaw1LzUvKLoJoBUEsDBBQAAAAIAIyUMF0dVx21BgAAAAQAAAAKAAAAVGVzdC5jbGFzczv1b9c+AFBLAQIUAxQAAAAIAIyUMF0C6Ce+OgAAAGUAAAAUAAAAAAAAAAAAAACAAQAAAABNRVRBLUlORi9NQU5JRkVTVC5NRlBLAQIUAxQAAAAIAIyUMF0dVx21BgAAAAQAAAAKAAAAAAAAAAAAAACAAWwAAABUZXN0LmNsYXNzUEsFBgAAAAACAAIAegAAAJoAAAAAAA==', 'base64');
@@ -499,4 +499,15 @@ test('remote JAR uploads persist metadata, enforce download ownership and roll b
  const transaction=db.transaction;db.transaction=async()=>{throw new Error('simulated persistence failure');};
  try {assert.equal((await owner('/games',{method:'POST',body:upload()})).status,500);}finally{db.transaction=transaction;}
  assert.deepEqual(removed,[put[1]]);assert.deepEqual(await readdir(join(dataDir,'tmp')),[]);
+});
+
+
+test('transaction pool keeps actor context isolated and recovers after query failure',async t=>{
+ const {db}=await setup(t);
+ await Promise.all(Array.from({length:10},(_,i)=>databaseActor.run('actor-'+i,async()=>{
+  const result=await db.query("SELECT current_setting('app.actor_id',true) AS actor");
+  assert.equal(result.rows[0].actor,'actor-'+i);
+ })));
+ await assert.rejects(db.query('SELECT missing_column_for_rollback_test'));
+ assert.equal((await db.query("SELECT current_setting('app.actor_id',true) AS actor")).rows[0].actor,'');
 });
