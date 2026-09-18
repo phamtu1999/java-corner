@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Game trên máy · Java Corner</title>
+    <link rel="icon" href="/ui/favicon.svg">
+    <link rel="stylesheet" href="/ui/site.css?v=20260917-5">
+    <link rel="stylesheet" href="/emulator/launcher.css?v=20260917-8">
+  </head>
+
+  <body data-page="local">
+    <header id="site-header"></header>
+    <div id="loading" role="status">Đang tải trình giả lập…</div>
+    <main id="main" style="display: none" tabindex="-1">
+      <div class="page-heading"><div><h1>Game trên máy</h1><p class="page-description">Chơi tệp JAR và quản lý bản lưu trong trình duyệt này.</p></div>
+        <div class="data-controls">
+          <button class="btn" id="import-data-btn"><svg class="launcher-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg>Nhập bản lưu</button>
+          <button class="btn" id="export-data-btn"><svg class="launcher-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m-4 4 4-4 4 4M4 16v5h16v-5"/></svg>Xuất bản lưu</button>
+          <input type="file" id="import-data-file" hidden accept=".zip" aria-label="Nhập bản lưu ZIP">
+          <a id="export-data-link" hidden download="java-games-backup.zip">Tải bản lưu</a>
+        </div>
+      </div>
+      <div class="workspace">
+        <section class="library" aria-label="Game đã cài">
+          <div class="list-heading"><span class="section-title"><svg class="launcher-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Game đã cài <span id="installed-count" class="installed-count">0</span></span><label class="library-sort">Sắp xếp <select id="game-sort"><option value="installed">Thứ tự cài đặt</option><option value="az">Tên A–Z</option><option value="za">Tên Z–A</option></select></label></div>
+          <div id="game-list" class="game-list" aria-live="polite"></div>
+          <div class="library-note"><p>Lưu trên trình duyệt này. Xuất bản lưu trước khi chuyển máy hoặc xóa dữ liệu.</p></div>
+
+        </section>
+        <section class="installer" aria-labelledby="add-edit-text">
+      <div class="add-edit-header">
+        <div class="section-title"><svg class="launcher-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/><rect x="2" y="2" width="20" height="20" rx="2"/></svg><h2 id="add-edit-text">Thêm game</h2></div>
+        <button id="clear-current" class="btn btn-outline"><svg class="launcher-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2.5 7M3 4v7h7"/></svg>Chọn lại</button>
+      </div>
+      <p id="upload-error" role="alert" style="color: #a51d25"></p><div id="file-input-step">
+        <div class="form-group upload-area">
+          <label for="game-file-input">Chọn game .jar từ máy</label>
+          <input type="file" id="game-file-input" accept=".jar" />
+        </div>
+      </div>
+      <div id="file-input-jad-step" style="display: none">
+        <div id="warning-message" class="warning-message">
+          <span>⚠️</span>
+          <span
+            >Game cần tệp mô tả .jad. Chọn tệp đi kèm game để tiếp tục.</span
+          >
+        </div>
+        <div class="form-group">
+          <label for="upload-descriptor-file-input">Chọn tệp .jad</label>
+          <input type="file" id="upload-descriptor-file-input" accept=".jad" />
+        </div>
+        <div class="form-group">
+          <button id="continue-without-jad" class="btn btn-outline btn-full">
+            Thử tiếp tục không có .jad
+          </button>
+        </div>
+      </div>
+      <div class="loading" id="file-input-loading" style="display: none">
+        <div class="spinner"></div>
+        <span>Đang đọc game…</span>
+      </div>
+      <div id="add-manage-step" style="display: none">
+        <div id="preview" class="preview-container">
+          <img class="preview-icon" alt="" />
+          <span class="preview-name">Tên game</span>
+          <div id="preview-controls" class="manage-controls">
+            <details class="remove-options"><summary>Quản lý dữ liệu game</summary><div class="remove-actions">
+            <button
+              id="wipe-data-btn"
+              class="control-button warning-button"
+              title="Xóa tiến trình game"
+            >
+              Xóa tiến trình
+            </button>
+            <button
+              id="uninstall-btn"
+              class="control-button danger-button"
+              title="Gỡ game"
+            >
+              Gỡ game
+            </button>
+
+            </div></details>
+          </div>
+        </div>
+        <div id="edit-settings-container" class="settings-container">
+          <div class="settings-grid">
+            <div class="form-group">
+              <label for="phoneType">Dòng điện thoại</label>
+              <select id="phoneType">
+                <option value="Standard">Standard</option>
+                <option value="Nokia">Nokia</option>
+                <option value="Motorola">Motorola</option>
+                <option value="Siemens">Siemens</option>
+                <option value="SonyEricsson">SonyEricsson</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="screenSize">Kích thước màn hình</label>
+              <select id="screenSize">
+                <option value="96x65">96x65</option>
+                <option value="96x96">96x96</option>
+                <option value="104x80">104x80</option>
+                <option value="128x128">128x128</option>
+                <option value="132x176">132x176</option>
+                <option value="128x160">128x160</option>
+                <option value="176x208">176x208</option>
+                <option value="176x220">176x220</option>
+                <option value="208x208">208x208</option>
+                <option value="240x320">240x320</option>
+                <option value="320x240">320x240</option>
+                <option value="240x400">240x400</option>
+                <option value="352x416">352x416</option>
+                <option value="360x640">360x640</option>
+                <option value="640x360">640x360</option>
+                <option value="480x800">480x800</option>
+                <option value="800x480">800x480</option>
+                <option value="custom">Tùy chỉnh</option>
+              </select>
+              <div class="custom-size-inputs" id="edit-custom-size-inputs">
+                <input
+                  type="number"
+                  placeholder="Rộng" aria-label="Chiều rộng"
+                  id="customWidth"
+                  min="1"
+                />
+                <input
+                  type="number"
+                  placeholder="Cao" aria-label="Chiều cao"
+                  id="customHeight"
+                  min="1"
+                />
+              </div>
+            </div>
+            <label class="checkbox"
+              ><input type="checkbox" name="enableSound" /> Bật âm thanh</label
+            >
+            <label class="checkbox"
+              ><input type="checkbox" name="rotate" /> Xoay màn hình</label
+            >
+          </div>
+          <details class="advanced-settings">
+            <summary>
+              <h3>Thiết lập nâng cao</h3>
+            </summary>
+          <div class="aux-file-upload">
+            <div class="aux-file-upload-btn">
+              Thêm tệp .jad (không bắt buộc)
+            </div>
+            <input type="file" aria-label="Thêm tệp mô tả JAD" id="aux-jad-file-input" accept=".jad" />
+          </div>
+          <div class="settings-grid">
+            <div class="form-group">
+              <label for="fontSize">Cỡ chữ</label>
+              <select id="fontSize">
+                <option value="0">Tự động</option>
+                <option value="1">Nhỏ</option>
+                <option value="2">Vừa</option>
+                <option value="3">Lớn</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="dgFormat">Định dạng màu</label>
+              <select id="dgFormat">
+                <option value="444">444 RGB</option>
+                <option value="4444">4444 ARGB</option>
+                <option value="565">565 ARGB</option>
+                <option value="888">888 ARGB</option>
+                <option value="8888">8888 ARGB</option>
+              </select>
+            </div>
+            <label class="checkbox"
+              ><input type="checkbox" name="forceFullscreen" /> Buộc toàn màn hình</label
+            >
+            <label class="checkbox"
+              ><input type="checkbox" name="textureDisableFilter" /> Tắt lọc hình ảnh</label
+            >
+            <label class="checkbox"
+              ><input type="checkbox" name="queuedPaint" /> Vẽ theo hàng đợi (khi game bị treo)</label
+            >
+          </div>
+            <div class="form-group">
+              <label for="editAppProps">Thuộc tính ứng dụng</label>
+              <textarea
+                id="editAppProps"
+                placeholder="key: value, mỗi dòng một thuộc tính"
+              ></textarea>
+            </div>
+            <div class="form-group">
+              <label for="editSysProps">Thuộc tính hệ thống</label>
+              <textarea
+                id="editSysProps"
+                placeholder="key: value, mỗi dòng một thuộc tính"
+              ></textarea>
+            </div>
+          </details>
+        </div>
+        <button class="save-button" id="add-save-button">Thêm game</button>
+      </div>
+
+          <details class="compatibility"><summary><svg class="launcher-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/></svg>Tệp được hỗ trợ</summary><p>Game Java ME (.jar), có thể kèm .jad. Không hỗ trợ .java hoặc Java desktop.</p></details>
+        </section>
+          <details class="keyboard-controls">
+            <summary><svg class="launcher-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h1m4 0h1m4 0h1M6 12h1m4 0h1m4 0h1M7 16h10"/></svg>Bàn phím điều khiển</summary>
+            <dl class="key-guide">
+              <div><dt><kbd>↑ ↓ ← →</kbd></dt><dd>Di chuyển</dd></div>
+              <div><dt><kbd>Enter</kbd></dt><dd>Xác nhận</dd></div>
+              <div><dt><kbd>Q</kbd> <kbd>W</kbd></dt><dd>Phím trái / phải</dd></div>
+              <div><dt><kbd>0–9</kbd></dt><dd>Phím số</dd></div>
+              <div><dt><kbd>E</kbd> <kbd>R</kbd></dt><dd>Phím * / #</dd></div>
+              <div><dt><kbd>Esc</kbd></dt><dd>Cài đặt giả lập</dd></div>
+            </dl>
+            <p class="key-note">F1 / F2 cũng là phím trái / phải. Bàn phím số bên phải đổi hàng 123 và 789 theo bố cục điện thoại.</p>
+          </details>
+      </div>
+    </main>
+    <footer id="site-footer"></footer>
+    <script type="module" src="/ui/site.js?v=20260917-6"></script>
+    <script src="https://cjrtnc.leaningtech.com/20260317_2978/loader.js"></script>
+    <script type="module" src="/emulator/src/launcher.js?v=20260917-8"></script>
+  </body>
+</html>

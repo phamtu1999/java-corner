@@ -1,0 +1,26 @@
+node_modules/
+data/
+.env
+
+.env.*
+!.env.example
+
+.vscode/java-bin/
+
+# Local data and tooling
+downloads/
+reports/
+.codegraph/
+.impeccable/
+.playwright-mcp/
+__pycache__/
+*.pyc
+*.log
+*.pid
+web/emulator/apps/
+web/emulator/libmedia/test/
+web/emulator/libmidi/test/
+# Superseded emulator builds
+web/emulator/freej2me-web-network*.jar
+web/emulator/freej2me-web-relay.jar
+web/emulator/freej2me-web-relay-v2.jar

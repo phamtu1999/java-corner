@@ -1,0 +1,20 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import express from 'express';
+import {publicCache} from '../server/public-cache.js';
+test('public cache coalesces, expires, invalidates and isolates private requests',async t=>{
+ const app=express();let calls=0;
+ app.use((req,res,next)=>{if(req.headers.authorization)req.user={id:'member'};next();});
+ app.use(publicCache({ttl:50}));
+ app.get('/games',async(req,res)=>{calls++;await new Promise(r=>setTimeout(r,10));res.json({calls,scope:req.query.scope||'public'});});
+ app.post('/change',(req,res)=>res.json({ok:true}));
+ const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));t.after(()=>server.close());
+ const base='http://127.0.0.1:'+server.address().port;
+ const get=(path='/games',options)=>fetch(base+path,options).then(r=>r.json());
+ await Promise.all(Array.from({length:20},()=>get()));assert.equal(calls,1);
+ await get();assert.equal(calls,1);
+ await get('/games',{headers:{authorization:'test'}});assert.equal(calls,2);
+ await get('/games?scope=mine');await get('/games?scope=mine');assert.equal(calls,4);
+ await get('/change',{method:'POST'});await get();assert.equal(calls,5);
+ await new Promise(r=>setTimeout(r,60));await get();assert.equal(calls,6);
+});

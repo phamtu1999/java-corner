@@ -1,0 +1,13 @@
+**
+!package.json
+!package-lock.json
+!server/
+!server/**
+!scripts/
+!scripts/**
+!web/
+!web/**
+!Dockerfile
+scripts/__pycache__/
+**/.env
+**/.env.*

@@ -1,0 +1,101 @@
+* { box-sizing: border-box; }
+.player-network { max-width:1200px; margin:0 auto; display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:6px 12px; background:#f4f9fc; border-bottom:1px solid #d5e3ed; font-size:12px; }
+.player-network button, .player-network a { padding:6px 9px; border:1px solid #b5d5e5; background:#fff; color:#275773; border-radius:3px; font:inherit; }
+.player-network [hidden] { display:none; }
+html, body { margin: 0; min-height: 100%; }
+body { background: var(--paper); color: var(--ink); }
+.player-toolbar { height: 54px; padding: 8px 16px; display: flex; align-items: center; gap: 10px; background: #fff; border-bottom: 1px solid #c4caca; }
+.player-toolbar a { color: inherit; text-underline-offset: 3px; margin-right: auto; padding: 8px 0; }
+.player-toolbar select { font: inherit; max-width: 190px; min-height: 36px; border: 1px solid #a6b0b4; border-radius: 4px; padding: 6px 10px; background: white; color: #25313a; }
+:focus-visible { outline: 3px solid #4383bd; outline-offset: 2px; }
+#game-shell { display: grid; height: calc(100dvh - var(--site-header-height, 114px) - 48px); min-height: 220px; grid-template-areas: 'screen'; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+#screen-area { grid-area: screen; display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; overflow: hidden; }
+#display { display: block; flex: none; background: #000; image-rendering: pixelated; }
+#loading { padding: 20px; text-align: center; }
+.phone-brand, .keypad-part { display: none; }
+#left-keys { grid-area: numbers; }
+#right-keys { grid-area: directions; }
+.keypad-part { padding: 10px; align-items: center; background: #29333b; }
+.key-grid { display: grid; width: 100%; gap: 7px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.left-grid { grid-template-rows: repeat(4, minmax(40px, 1fr)); }
+.right-grid { grid-template-rows: repeat(3, minmax(40px, 1fr)); }
+.key { touch-action: none; user-select: none; -webkit-user-select: none; display: flex; flex-direction: column; justify-content: center; align-items: center; min-width: 0; padding: 4px; border: 1px solid #66737d; border-radius: 6px; background: #424e58; color: #fff; font: 600 20px/1.1 'Segoe UI', sans-serif; cursor: pointer; }
+.key span { font-size: 9px; font-weight: 400; margin-top: 3px; color: #dde3e7; }
+.key:hover { background: #52616d; }
+.key.active { background: #758b64; border-color: #b2cba0; }
+.small-key { font-size: 13px; }
+body[data-layout='split'] #game-shell { grid-template-areas: 'numbers screen directions'; grid-template-columns: clamp(150px, 20vw, 230px) minmax(0, 1fr) clamp(150px, 20vw, 230px); }
+body[data-layout='split'] .keypad-part, body[data-layout='bottom'] .keypad-part, body[data-layout='nokia'] .keypad-part { display: flex; }
+body[data-layout='split'] .key-grid { height: min(75%, 360px); }
+body[data-layout='bottom'] #game-shell { grid-template-areas: 'screen screen' 'numbers directions'; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) 210px; }
+body[data-layout='bottom'] .key-grid { height: 100%; max-width: 320px; margin: auto; }
+/* A handset shell inspired by Nokia's early colour-screen phones. */
+body[data-layout='nokia'] #game-shell {
+  width: min(350px, calc(100% - 20px)); height: min(720px, calc(100dvh - var(--site-header-height, 114px) - 68px)); min-height: 520px;
+  margin: 12px auto; padding: 14px 20px 22px; gap: 8px;
+  grid-template-areas: 'brand' 'screen' 'directions' 'numbers';
+  grid-template-columns: minmax(0, 1fr); grid-template-rows: 26px minmax(0, 1fr) 104px 164px;
+  background: #34495f; border: 5px solid #718292; border-radius: 48px 48px 60px 60px;
+  box-shadow: inset 0 0 0 2px #1f2b39, 0 8px 16px #25313a22;
+}
+body[data-layout='nokia'] .phone-brand { grid-area: brand; display: flex; flex-direction: column; align-items: center; gap: 6px; color: #f1f3f5; font-weight: 800; font-size: 15px; letter-spacing: 2px; line-height: 1; }
+.speaker { width: 48px; height: 5px; border-radius: 5px; background: #17232f; box-shadow: 0 1px #8e9aa4; }
+body[data-layout='nokia'] #screen-area { background: #171f28; border: 7px solid #17232f; border-radius: 9px; }
+body[data-layout='nokia'] #loading { color: white; font-size: 13px; }
+body[data-layout='nokia'] .keypad-part { background: transparent; padding: 0; }
+body[data-layout='nokia'] .key-grid { height: 100%; gap: 5px 9px; }
+body[data-layout='nokia'] .key { background: #dce0e2; border: 1px solid #f7f8f9; border-bottom: 3px solid #82909d; color: #1f2b39; border-radius: 8px 8px 15px 15px; font-size: 19px; box-shadow: 0 2px 2px #17232f; }
+body[data-layout='nokia'] .key span { color: #44525e; font-size: 9px; }
+body[data-layout='nokia'] .key.active { background: #afc2a1; border-bottom-width: 1px; box-shadow: none; }
+body[data-layout='nokia'] .right-grid { grid-template-rows: repeat(3, minmax(0, 1fr)); }
+body[data-layout='nokia'] .right-grid .key { font-size: 14px; border-radius: 8px; }
+body[data-layout='nokia'] .ok-key { background: #a8b7c5; border: 3px solid #f4f6f8; }
+@media (max-width: 600px) {
+  .player-toolbar { padding: 8px 10px; gap: 7px; font-size: 12px; }
+  body[data-layout='split'] #game-shell { grid-template-columns: 80px minmax(0, 1fr) 80px; }
+  body[data-layout='split'] .keypad-part { padding: 4px; }
+  body[data-layout='split'] .key-grid { gap: 3px; }
+  body[data-layout='split'] .key { font-size: 13px; }
+  body[data-layout='split'] .key span { display: none; }
+}
+@media (max-height: 500px) {
+  body[data-layout='bottom'] #game-shell { grid-template-rows: minmax(100px, 1fr) 180px; }
+}
+
+.player-toolbar{padding-left:max(14px,calc((100vw - 1092px)/2));padding-right:max(14px,calc((100vw - 1092px)/2));font-size:13px;border-color:var(--line)}
+.player-toolbar select{color:var(--ink);border-color:#aebcc9;border-radius:3px}
+
+/* A compact header leaves more room for gameplay. */
+.player-toolbar{height:48px;max-width:var(--site-width);margin:0 auto;padding:6px 10px;background:#f8fbfd;gap:8px}
+.player-toolbar a,.player-toolbar label{display:flex;align-items:center;gap:6px;color:#365367}.player-toolbar a{padding:4px 0}.player-toolbar select{min-height:32px;font-size:12px;padding:5px 7px}.player-icon{width:18px;height:18px;flex:none;pointer-events:none}
+#game-shell{max-width:var(--site-width);margin:0 auto}
+body[data-layout="nokia"] #game-shell{margin:10px auto;padding-top:12px;padding-bottom:16px}
+@media(max-width:600px){.player-toolbar{font-size:12px}.player-toolbar label span{display:none}}
+.player-toolbar{flex-wrap:wrap;gap:8px}.player-toolbar label{display:flex;align-items:center;gap:6px}.screenshot-dialog{width:min(480px,90vw);max-height:90vh;overflow:auto;border:1px solid #bdd6e4;border-radius:8px;padding:20px}.screenshot-dialog::backdrop{background:#152d4266}.screenshot-dialog img{display:block;max-width:100%;max-height:260px;margin:12px auto;object-fit:contain}.screenshot-dialog form,.screenshot-dialog label{display:grid;gap:8px;margin:12px 0}.screenshot-error{color:#a12829}
+.key-settings{display:grid;grid-template-columns:1fr 1fr;gap:8px}.key-settings label{margin:0}.settings-error{color:#a12829}
+
+/* Network controls share the player toolbar and wrap on smaller screens. */
+.player-toolbar{height:auto;min-height:48px}
+.player-toolbar .player-network{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0;padding:0 0 0 8px;border:0;border-left:1px solid #d5e3ed;background:transparent;font-size:12px}
+.player-toolbar .player-network button,.player-toolbar .player-network a{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:32px;margin:0;padding:5px 8px;white-space:nowrap;text-decoration:none;cursor:pointer}
+.player-toolbar .player-network button:hover,.player-toolbar .player-network a:hover{background:#e7f5fc;border-color:#009fda}
+.player-toolbar .player-network [aria-pressed="true"]{color:#0076a3;background:#e7f5fc}
+.player-network [role="status"]{color:#52697a;font-size:11px}
+.player-toolbar .player-network [hidden]{display:none}
+@media(max-width:600px){.player-toolbar .player-network{border-left:0;padding-left:0}.player-network button,.player-network a{min-height:36px}}
+
+/* Compact, single-row player controls, including dynamically added actions. */
+.player-toolbar{flex-wrap:nowrap;overflow-x:auto;gap:6px;min-height:52px}
+.player-toolbar>a:first-child{margin-right:auto}
+.player-toolbar button,.player-toolbar a[data-compact],.player-toolbar .player-network button,.player-toolbar .player-network a{width:36px;height:36px;min-height:36px;flex:0 0 36px;padding:8px;box-sizing:border-box;border:1px solid #c5dbe7;border-radius:6px;background:#fff;display:inline-flex;align-items:center;justify-content:center}
+.player-toolbar .toolbar-select{position:relative;display:flex;align-items:center;justify-content:center;flex:0 0 36px;width:36px;height:36px;box-sizing:border-box;border:1px solid #c5dbe7;border-radius:6px;background:#fff;cursor:pointer}
+.player-toolbar .toolbar-select select{position:absolute;inset:0;width:100%;height:100%;min-width:0;opacity:0;cursor:pointer}
+.player-toolbar .toolbar-select:focus-within{outline:2px solid #008ec5;outline-offset:2px}
+.player-toolbar .player-network{flex-wrap:nowrap;flex:none}
+.player-network [role="status"]{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.player-toolbar .player-network [hidden]{display:none}
+
+.player-toolbar .player-network button[data-connection^="Cần"]{background:#fff4d6;color:#915c00;border-color:#e0b64e}
+.player-toolbar .player-network button[data-connection^="Đã"]{background:#e9f8ef;color:#167440;border-color:#85cba3}
+
+.game-text-entry{box-sizing:border-box;width:100%;max-width:var(--site-width);margin:0 auto;padding:12px;background:#fff;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.game-text-entry[hidden]{display:none}.game-text-entry>label:first-child{flex:1;min-width:180px;display:grid;gap:6px}.game-text-entry input:not([type=checkbox]){width:100%;box-sizing:border-box;min-height:40px;font:inherit}.game-text-entry button{min-height:40px}.game-text-entry p{flex-basis:100%;margin:0;font-size:12px}.game-support{box-sizing:border-box;width:min(520px,90vw);max-height:85vh;overflow:auto;border:1px solid #bdd6e4;border-radius:6px;padding:20px}.game-support label{display:grid;gap:6px;margin:12px 0}.game-support textarea{box-sizing:border-box;max-width:100%;width:100%;font:inherit}.game-support button{min-height:40px;margin:4px}.game-support::backdrop{background:#152d4266}

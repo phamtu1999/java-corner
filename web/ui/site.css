@@ -1,0 +1,59 @@
+/* Shared classic mobile-web theme. Keep gameplay sizing in player.css. */
+:root{--site-width:1200px;color-scheme:light;--ink:#333;--muted:#737373;--line:#e3e3e3;--paper:#eee;--green:#00a4df;--deep:#008fc6;--tint:#f4f4f4;font:13px/1.4 Arial,Helvetica,sans-serif;color:var(--ink);background-color:var(--paper);background-image:repeating-linear-gradient(45deg,transparent,transparent 7px,#00000003 7px,#00000003 8px),repeating-linear-gradient(-45deg,transparent,transparent 7px,#00000003 7px,#00000003 8px)}
+*{box-sizing:border-box}body{margin:0}a{color:#421cff;text-decoration:none}a:hover{text-decoration:underline}button,input,select,textarea{font:inherit;color:inherit}button,.button,.btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:30px;padding:4px 8px;border:1px solid #ccc;border-radius:0;background:#f7f7f7;font-weight:400;cursor:pointer;text-decoration:none}button:hover,.button:hover,.btn:hover{background:#e9f6fc;text-decoration:none}button:disabled{opacity:.55;cursor:wait}.primary,.save-button{background:var(--green);border-color:var(--green);color:#fff}.primary:hover,.save-button:hover{background:var(--deep)}.quiet{border-color:transparent;background:transparent}.small{font-size:12px;min-height:28px;padding:3px 7px}input,select,textarea{border:1px solid #bbb;border-radius:0;background:white;padding:5px 7px;max-width:100%}textarea{resize:vertical}input::file-selector-button{font:inherit;border:1px solid #bbb;border-radius:0;padding:5px 8px;margin-right:8px;background:#f4f4f4;color:var(--ink);cursor:pointer}:focus-visible{outline:2px solid #6445e8;outline-offset:2px}[hidden]{display:none!important}h1,h2,h3{line-height:1.35}h1{font-size:17px;margin:0 0 4px}h2{font-size:14px;margin:0 0 8px}h3{font-size:13px;margin:0 0 4px}p{line-height:1.5}
+.site-header,.site-footer{max-width:var(--site-width);margin:auto;background:#fff}.site-top{display:flex;flex-direction:column;align-items:stretch;gap:0}.site-brand{display:flex;justify-content:center;align-items:center;min-height:50px;background:var(--green);color:white;font-size:30px;font-weight:800;letter-spacing:-1px;text-transform:uppercase;white-space:nowrap}.site-brand:hover{text-decoration:none}.site-emblem{display:none}.site-account,#account{display:flex;justify-content:flex-end;align-items:center;gap:6px;padding:3px 6px;font-size:12px;flex-wrap:wrap;min-height:32px;border-bottom:1px solid var(--line)}.site-account button,#account button,.site-account .button{min-height:24px;padding:2px 6px;font-size:12px}.site-nav-wrap{background:#f5f5f5;border-bottom:1px solid #ddd}.site-nav{display:flex;flex-wrap:wrap}.site-nav a{flex:1 1 auto;text-align:center;padding:8px 10px;border-right:1px solid #e3e3e3;font-size:13px;white-space:nowrap}.site-nav a:hover{background:#eaf8ff}.site-nav a[aria-current=page]{background:#e5f6ff;color:#007ba8;font-weight:700;box-shadow:inset 0 -2px var(--green)}.site-footer{display:flex;justify-content:center;flex-wrap:wrap;gap:6px 18px;padding:12px 8px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}.site-footer a{text-decoration:underline}.skip{position:absolute;left:10px;top:-100px;background:#fff;padding:12px;z-index:10}.skip:focus{top:10px}
+@media(max-width:450px){.site-nav a{flex:1 0 30%;padding:9px 4px}.site-brand{font-size:28px}.site-footer{flex-direction:column;text-align:center}}
+
+/* Keep short library pages full-height without constraining long content or gameplay. */
+body[data-page="community"],body[data-page="local"]{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
+body:is([data-page="community"],[data-page="local"])>.site-header,body:is([data-page="community"],[data-page="local"])>.site-footer{width:100%;flex:none;margin:0 auto}
+body[data-page="community"]>.shell,body[data-page="local"]>main,body[data-page="local"]>#loading{width:100%;max-width:var(--site-width);flex:1;margin:0 auto;background:#fff}
+html:has(body:is([data-page="community"],[data-page="local"])){scrollbar-gutter:stable both-edges}
+
+/* Shared navigation icons keep their labels visible at every screen size. */
+.site-nav a{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;color:#365367}
+.site-nav a:hover{text-decoration:none;background:#e5f5fd;color:#007cae}
+.nav-icon{width:20px;height:20px;flex:none;color:var(--nav-accent,#008dc5)}
+[data-nav="forum"]{--nav-accent:#8460c5}[data-nav="history"]{--nav-accent:#bc801a}[data-nav="mine"]{--nav-accent:#24966b}[data-nav="local"]{--nav-accent:#477bc2}[data-nav="admin"]{--nav-accent:#bf6570}
+.site-nav a[aria-current="page"] .nav-icon{color:#007ba8}
+@media(max-width:450px){.site-nav a{gap:5px;font-size:12px}.nav-icon{width:17px;height:17px}}
+
+.site-account,#account{gap:8px;padding:7px 10px;background:#f9fcfe;min-height:50px}
+#account .account-control{min-height:36px;max-width:100%;gap:7px;padding:6px 10px;border:1px solid #d4e4ec;background:#fff;color:#365367;font-size:13px;text-decoration:none}
+#account .account-control:hover{background:#e5f5fd;border-color:#9acfe5;color:#007ba8}
+#account .account-account{border-color:transparent;background:transparent;color:#236082;font-weight:600;min-width:0}
+#account .account-register{background:var(--green);border-color:var(--green);color:#fff}
+#account .account-register:hover{background:var(--deep)}
+.account-icon{width:18px;height:18px;flex:none}.account-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#account .account-logout .account-icon{color:#b96c59}
+@media(max-width:450px){.site-account,#account{gap:5px;padding:5px 7px}#account .account-control{padding:6px 8px;font-size:12px}#account .account-account{max-width:calc(100% - 115px)}}
+
+/* One compact header for the community, library and player. */
+.site-top{flex-direction:row;align-items:center;justify-content:space-between;background:var(--green);padding:0 10px;gap:8px;min-height:44px}
+.site-brand{min-height:44px;font-size:20px;letter-spacing:-.4px}
+#account{background:transparent;border:0;padding:3px 0;min-height:0;gap:4px}
+#account .account-control{min-height:30px;padding:4px 7px;font-size:12px}
+#account .account-account{color:white;max-width:180px}
+#account .account-account:hover{color:#16506a}
+.site-nav a{min-height:36px;padding-top:6px;padding-bottom:6px}
+@media(max-width:600px){.site-top{flex-direction:column;flex-wrap:wrap;justify-content:center;gap:0 8px}.site-brand{font-size:18px;min-height:38px}#account .account-account{max-width:135px}}
+#account .header-favorite{display:inline-flex;align-items:center;justify-content:center;width:36px;min-height:36px;padding:0;color:#fff;background:transparent;border:1px solid transparent;border-radius:5px;flex-shrink:0}#account .header-favorite:hover,#account .header-favorite[aria-current="page"]{background:#fff;color:#d82d65;border-color:#fff}#account .header-favorite[aria-current="page"] svg{fill:#ffe3ec}#account .header-favorite:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#account .header-tool{position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;width:36px;min-height:36px;padding:0;border:1px solid transparent;border-radius:5px;background:transparent;color:white;text-decoration:none}#account .header-tool:hover{background:#fff;color:#007eac}#account .header-tool:focus-visible{outline:2px solid white;outline-offset:2px}.header-tool-badge{position:absolute;top:-3px;right:-3px;min-width:16px;padding:1px 3px;border-radius:10px;background:#c42350;color:white;font-size:10px;line-height:14px;text-align:center}#account{flex-wrap:wrap}@media(max-width:600px){#account{justify-content:center}#account .header-tool,#account .header-favorite{width:34px;min-height:38px}}
+.header-dialog{box-sizing:border-box;width:min(510px,calc(100% - 28px));max-height:85svh;overflow:auto;padding:22px;border:1px solid #bed2df;border-radius:12px;background:white;color:#24465b;box-shadow:0 16px 50px #102c4440}.header-dialog::backdrop{background:#18273670}.header-dialog-close{float:right;border:0;background:transparent;font-size:24px;cursor:pointer}.header-dialog h2{font-size:18px;margin:0 30px 18px 0}.header-list-item{display:block;padding:12px 8px;border-bottom:1px solid #dce7ed;color:#16648a;text-decoration:none}.header-list-item.unread{background:#eef8ff}.header-dialog form,.header-dialog label{display:grid;gap:8px}.header-dialog form{gap:14px}.header-dialog input:not([type=checkbox]),.header-dialog textarea{box-sizing:border-box;width:100%;padding:8px}.header-dialog [role=alert]{color:#b42336}
+.account-tabs{display:flex;gap:4px;border-bottom:1px solid #cbdde8;margin-bottom:18px}.account-tabs button{flex:1;padding:10px 6px;border:0;border-bottom:3px solid transparent;background:transparent;color:#36566b;cursor:pointer}.account-tabs [aria-selected=true]{border-bottom-color:#009fd8;color:#007aa6;background:#edf9ff;font-weight:700}.account-tabs button:focus-visible{outline:2px solid #007aa6}.account-avatar{width:72px;height:72px;object-fit:cover;border-radius:50%}.account-bio{white-space:pre-wrap;overflow-wrap:anywhere}.account-panel .account-check{display:flex;align-items:center;gap:8px}.account-panel input[type=checkbox]{width:auto}.account-panel{min-height:140px}.account-panel form>button{background:#009fd8;color:white;border:0;padding:10px;cursor:pointer}
+.header-dialog.account-dialog{height:min(620px,calc(100svh - 32px));max-height:calc(100svh - 32px);overflow:hidden;position:fixed;padding:22px;grid-template-rows:auto auto minmax(0,1fr)}
+.header-dialog.account-dialog[open]{display:grid}
+.account-dialog>.header-dialog-close{position:absolute;right:12px;top:12px;float:none}
+.account-dialog>.account-tabs{min-width:0;flex-shrink:0}
+.account-dialog>.account-panel{min-height:0;min-width:0;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;padding-right:8px;overscroll-behavior:contain}
+.account-dialog .account-panel form{min-width:0}
+@media(max-width:450px){.header-dialog.account-dialog{padding:16px;width:calc(100% - 24px)}.account-dialog .account-tabs button{font-size:12px;padding:10px 3px}}
+
+.app-message-dialog{box-sizing:border-box;width:min(440px,calc(100vw - 32px));max-height:85vh;overflow:auto;padding:24px;border:1px solid #cbdde8;border-radius:12px;background:#fff;color:#243746;box-shadow:0 18px 60px #102c4433}
+.app-message-dialog::backdrop{background:#102c4466}
+.app-message-dialog h2{margin:0 0 12px;font-size:18px;color:#006b96;background:none;padding:0}
+.app-message-dialog p{margin:0;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}
+.app-message-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:24px}
+.app-message-actions button{min-height:40px;padding:8px 18px;border:1px solid #c3d5e2;border-radius:6px;background:#fff;color:#25475e;cursor:pointer}
+.app-message-actions button.primary{background:#008fc6;color:#fff;border-color:#008fc6}
+.app-message-actions button:focus-visible{outline:2px solid #007aaa;outline-offset:3px}

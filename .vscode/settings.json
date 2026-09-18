@@ -1,0 +1,9 @@
+{
+  "java.project.sourcePaths": [
+    "web/emulator/network-src"
+  ],
+  "java.project.referencedLibraries": [
+    "web/emulator/freej2me-web.jar"
+  ],
+  "java.project.outputPath": ".vscode/java-bin"
+}
