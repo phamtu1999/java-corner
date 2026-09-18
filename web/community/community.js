@@ -1,3 +1,4 @@
+import {checkUpload} from '/ui/deployment.js';
 import {setupDraft, clearDraft, setupTopicSearch} from './writing.js';
 import { decorateAccount } from '../ui/site.js?v=20260917-6';
 import {enhanceFeatures} from './features.js?v=20260917-2';
@@ -63,6 +64,7 @@ function route() { const [path, query] = ((location.pathname.slice(1) || 'games'
 async function api(path, options = {}) {
   const headers = { 'X-Requested-With': 'JavaCommunity', ...options.headers };
   if (options.body && !(options.body instanceof FormData)) { headers['Content-Type'] = 'application/json'; options.body = JSON.stringify(options.body); }
+  await checkUpload(options.body);
   const res = await fetch(`/api${path}`, { ...options, headers });
   const data = await res.json().catch(() => ({ error: 'Máy chủ chưa sẵn sàng. Hãy chạy npm start với phiên bản mới.' }));
   if (!res.ok) { const error=new Error(data.error || 'Không thực hiện được yêu cầu.');error.duplicate=data.duplicate;throw error; }

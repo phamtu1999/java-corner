@@ -1,3 +1,4 @@
+import {deploymentConfig} from './deployment.js';
 import {readFileSync,rmSync} from 'node:fs';
 import {uploadGuard} from './upload-guard.js';
 import multer from 'multer';
@@ -80,6 +81,7 @@ export function installFeatures(app, {db, member, admin, gameFor, fail, field, r
   app.get('/api/cloud-save/file',member,async(req,res)=>{
     const row=await db.prepare('SELECT data,revision FROM cloud_saves WHERE user_id=?').get(req.user.id);
     if(!row) fail(404,'Chưa có bản lưu trên tài khoản.');
+    if(deploymentConfig().uploadLimit && row.data.length>deploymentConfig().uploadLimit) fail(413,'Bản lưu này vượt giới hạn tải của Vercel. Hãy tải từ máy chủ Docker.');
     res.set('Content-Type','application/zip');res.set('X-Save-Revision',row.revision);res.send(row.data);
   });
   app.post('/api/cloud-save',member,rate('cloud-save',10,3600000),uploadGuard({max:2}),backupUpload,async(req,res)=>{

@@ -1,9 +1,11 @@
+import {checkUpload} from '/ui/deployment.js';
 import {iconButton} from './library-icons.js';
 export function setupCloudSave({user,exportData,importData,reload,getGames,restoreGame}) {
   const button=document.createElement('button');button.className='btn cloud-save-trigger';button.type='button';button.textContent='☁ Bản lưu tài khoản';
   document.getElementById('export-data-btn').after(button);
   iconButton(button,'cloud','Bản lưu tài khoản');iconButton(document.getElementById('export-data-btn'),'upload','Xuất bản lưu');iconButton(document.getElementById('import-data-btn'),'download','Nhập bản lưu');
   const request=async(path,options={})=>{
+    await checkUpload(options.body);
     const res=await fetch('/api/cloud-save'+path,{...options,headers:{'X-Requested-With':'JavaCommunity',...options.headers}});
     if(!res.ok){const error=new Error((await res.json().catch(()=>({}))).error||'Không kết nối được bản lưu.');error.status=res.status;throw error;}return res;
   };

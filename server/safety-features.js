@@ -1,7 +1,8 @@
+import {deploymentConfig} from './deployment.js';
 import {randomUUID} from 'node:crypto';
 import {rmSync} from 'node:fs';
 import {resolve} from 'node:path';
-export function installSafetyFeatures(app,{db,member,admin,gameFor,fail,field,rate,mediaStore,uploads}){
+export function installSafetyFeatures(app,{db,member,admin,gameFor,fail,field,rate,mediaStore,uploads,jarStore}){
  const limit=rate('safety-features',30,60000);
  app.get('/api/games/:id/guide',async(req,res)=>{const game=await gameFor(req,req.params.id);res.json(await db.prepare('SELECT * FROM game_guides WHERE game_id=?').get(game.id)||{body:''});});
  app.put('/api/games/:id/guide',member,admin,limit,async(req,res)=>{const g=await gameFor(req,req.params.id),body=field(req.body.body||'','Hướng dẫn',0,15000);await db.prepare('INSERT INTO game_guides(game_id,body) VALUES (?,?) ON CONFLICT(game_id) DO UPDATE SET body=EXCLUDED.body,updated_at=now()').run(g.id,body);res.json({ok:true});});
@@ -33,11 +34,12 @@ export function installSafetyFeatures(app,{db,member,admin,gameFor,fail,field,ra
  app.delete('/api/admin/trash/:kind/:id',member,admin,limit,async(req,res)=>{
   const {table,row}=await trashItem(req);if(req.body.confirm!==row.id)fail(400,'Cần xác nhận xóa vĩnh viễn.');
   const media=table==='posts'?row.media||[]:(await db.prepare('SELECT media FROM posts WHERE game_id=?').all(row.id)).flatMap(p=>p.media||[]);
+  if(table==='games' && row.storage_object) await jarStore.remove(row.storage_object,row.visibility);
   await mediaStore.remove(media);await db.prepare(`DELETE FROM ${table} WHERE id=? AND deleted_at IS NOT NULL`).run(row.id);
   if(table==='games')rmSync(resolve(uploads,row.id+'.jar'),{force:true});res.json({ok:true});
  });
  app.get('/api/cloud-save/versions',member,async(req,res)=>res.json(await db.prepare(`SELECT revision,updated_at,octet_length(data) AS size FROM cloud_saves WHERE user_id=? UNION ALL SELECT revision,updated_at,octet_length(data) AS size FROM cloud_save_versions WHERE user_id=? ORDER BY updated_at DESC`).all(req.user.id,req.user.id)));
  app.get('/api/cloud-save/versions/:revision',member,async(req,res)=>{
-  const row=await db.prepare('SELECT data,revision FROM cloud_save_versions WHERE user_id=? AND revision=? UNION ALL SELECT data,revision FROM cloud_saves WHERE user_id=? AND revision=?').get(req.user.id,req.params.revision,req.user.id,req.params.revision);if(!row)fail(404,'Mốc lưu không còn tồn tại.');res.set('X-Save-Revision',row.revision);res.type('application/zip').send(row.data);
+  const row=await db.prepare('SELECT data,revision FROM cloud_save_versions WHERE user_id=? AND revision=? UNION ALL SELECT data,revision FROM cloud_saves WHERE user_id=? AND revision=?').get(req.user.id,req.params.revision,req.user.id,req.params.revision);if(!row)fail(404,'Mốc lưu không còn tồn tại.');if(deploymentConfig().uploadLimit && row.data.length>deploymentConfig().uploadLimit)fail(413,'Bản lưu này vượt giới hạn tải của Vercel. Hãy tải từ máy chủ Docker.');res.set('X-Save-Revision',row.revision);res.type('application/zip').send(row.data);
  });
 }

@@ -308,7 +308,11 @@ test('parallel uploads cannot exceed the account quota', async t => {
   assert.equal(initial.status,201);
   await db.prepare('UPDATE games SET size=? WHERE id=?').run(200*1024*1024-uniqueJar().length,initial.data.id);
   const results=await Promise.all([owner('/games',{method:'POST',body:upload()}),owner('/games',{method:'POST',body:upload()})]);
-  assert.deepEqual(results.map(r=>r.status).sort(),[201,413]);
+  assert.equal(results.filter(r=>r.status===201).length,1);
+  assert.ok(results.some(r=>r.status===413 || r.status===429));
+  // A concurrent request can hit the per-account upload guard first. Once
+  // released, retrying must still be rejected by the persistent quota.
+  assert.equal((await owner('/games',{method:'POST',body:upload()})).status,413);
   assert.equal((await readdir(join(dataDir,'uploads'))).length,2);
 });
 
@@ -479,4 +483,20 @@ test('forum advanced filters combine ownership, author, unanswered and reply sor
  assert.deepEqual((await guest('/posts?author=forum_owner&q=cau%20hoi')).data.items.map(p=>p.id),[first.id]);
  assert.equal((await guest('/posts?sort=replies')).data.items[0].id,first.id);
  assert.equal((await a('/posts?mine=1&unanswered=1')).data.total,0);
+});
+
+test('remote JAR uploads persist metadata, enforce download ownership and roll back failures',async t=>{
+ const put=[],removed=[],signed=[];
+ const jarStore={put:async(file,visibility,owner,id)=>{const object=`uploads/${owner}/${id}.jar`;put.push(object);return object;},remove:async(object)=>removed.push(object),url:async(object,visibility)=>{signed.push({object,visibility});return '/api/me';}};
+ const {client,db,dataDir}=await setup(t,{deployment:{remoteJars:true,uploadLimit:4194304},jarStore});
+ const owner=client(),other=client();await register(owner,'remote_owner');await register(other,'remote_other');
+ const uploaded=await owner('/games',{method:'POST',body:upload()});assert.equal(uploaded.status,201);
+ const id=uploaded.data.id;
+ assert.equal((await db.prepare('SELECT storage_object FROM games WHERE id=?').get(id)).storage_object,put[0]);
+ assert.deepEqual(await readdir(join(dataDir,'uploads')),[]);
+ assert.equal((await other(`/games/${id}/file`)).status,404);assert.equal(signed.length,0);
+ assert.equal((await owner(`/games/${id}/file`)).status,200);assert.equal(signed[0].visibility,'private');
+ const transaction=db.transaction;db.transaction=async()=>{throw new Error('simulated persistence failure');};
+ try {assert.equal((await owner('/games',{method:'POST',body:upload()})).status,500);}finally{db.transaction=transaction;}
+ assert.deepEqual(removed,[put[1]]);assert.deepEqual(await readdir(join(dataDir,'tmp')),[]);
 });

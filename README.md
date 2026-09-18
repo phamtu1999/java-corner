@@ -165,3 +165,7 @@ Admin được cấp bằng `npm run admin -- email@example.com`; lệnh cập n
 Kiểm tra trước chuyển đổi: cả 7 bảng SQLite không có bản ghi, Supabase `public` chưa có bảng. Không có tài khoản/game/bài viết cần chuyển. SQLite cũ được giữ tại `data/backups/` để đối chiếu; ứng dụng không sử dụng nó. Database mới không cần dữ liệu mẫu.
 
 Rollback trước khi có dữ liệu mới: dừng server, khôi phục phiên bản ứng dụng SQLite trước chuyển đổi cùng bản backup local. Sau khi Supabase có dữ liệu mới, phải xuất và chuyển dữ liệu về trước khi rollback để tránh mất dữ liệu. Không xóa schema Supabase trong quá trình rollback; giữ lại để đối chiếu.
+
+## Vercel
+
+Xem [hướng dẫn triển khai Vercel](server/VERCEL.md) để cấu hình build, biến môi trường và Supabase Storage. Bản Vercel giới hạn upload 4 MB và relay Hobby tối đa 5 phút; game online chơi lâu cần backend chạy liên tục.

@@ -24,3 +24,7 @@ web/emulator/libmidi/test/
 web/emulator/freej2me-web-network*.jar
 web/emulator/freej2me-web-relay.jar
 web/emulator/freej2me-web-relay-v2.jar
+
+# Vercel build output and local project credentials
+public/
+.vercel/

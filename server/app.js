@@ -1,3 +1,5 @@
+import {gameStorage} from './game-storage.js';
+import {deploymentConfig} from './deployment.js';
 import {uploadGuard,mediaQuota} from './upload-guard.js';
 import {revokeRelay} from './game-network.js';
 import {publicCache} from './public-cache.js';
@@ -41,7 +43,7 @@ async function checkPassword(password, saved) {
   return timingSafeEqual(Buffer.from(hash, 'hex'), await scrypt(password, salt, 64));
 }
 
-export async function createApp({ mediaStore = mediaStorage(), database, dataDir = process.env.DATA_DIR || resolve(root, 'data'), siteOrigin = process.env.SITE_ORIGIN, production = process.env.NODE_ENV === 'production' } = {}) {
+export async function createApp({ mediaStore = mediaStorage(), deployment = deploymentConfig(), jarStore = gameStorage(), database, dataDir = deployment.dataDir || resolve(root, 'data'), siteOrigin = process.env.SITE_ORIGIN, production = process.env.NODE_ENV === 'production' } = {}) {
   if (production && (!siteOrigin || !siteOrigin.startsWith('https://'))) throw new Error('Production cần SITE_ORIGIN=https://ten-mien-cua-ban');
   const db = database || await openDatabase();
   const uploads = resolve(dataDir, 'uploads'), temp = resolve(dataDir, 'tmp');
@@ -61,6 +63,11 @@ export async function createApp({ mediaStore = mediaStorage(), database, dataDir
       const expected = siteOrigin || `${req.protocol}://${req.get('host')}`;
       if (req.get('origin') !== expected || req.get('x-requested-with') !== 'JavaCommunity') return res.status(403).json({ error: 'Yêu cầu không hợp lệ. Hãy tải lại trang.' });
     }
+    next();
+  });
+  app.get('/api/deployment', (req,res) => res.json({uploadLimit:deployment.uploadLimit,relayMaxSeconds:deployment.relayMaxSeconds}));
+  app.use('/api', (req,res,next) => {
+    if(deployment.uploadLimit && Number(req.get('content-length')) > deployment.uploadLimit) return res.status(413).json({error:'Bản Vercel nhận tối đa 4 MB mỗi lần tải lên. Hãy dùng tệp nhỏ hơn hoặc máy chủ Docker.'});
     next();
   });
   app.use('/api', express.json({ limit: '40kb' }));
@@ -154,7 +161,7 @@ export async function createApp({ mediaStore = mediaStorage(), database, dataDir
   }
   installFeatures(app,{db,member,admin,gameFor,fail,field,rate,temp});
   installCommunityExtras(app,{db,member,admin,gameFor,fail,field,rate,mediaStore,temp,uploads});
-  installSafetyFeatures(app,{db,member,admin,gameFor,fail,field,rate,mediaStore,uploads});
+  installSafetyFeatures(app,{db,member,admin,gameFor,fail,field,rate,mediaStore,uploads,jarStore});
   installDiscoveryFeatures(app,{db,member,admin,gameFor,fail,field,rate});
   app.get('/api/publishers',async(req,res)=>res.json(await db.prepare("SELECT DISTINCT publisher FROM games WHERE visibility='public' AND deleted_at IS NULL AND NOT hidden AND publisher<>'' ORDER BY publisher").all()));
   async function gameFields(body, visibility) {
@@ -243,20 +250,15 @@ export async function createApp({ mediaStore = mediaStorage(), database, dataDir
     const game = await gameFor(req, req.params.id);
     const stored = await db.prepare('SELECT storage_object FROM games WHERE id=?').get(game.id);
     if (stored?.storage_object) {
-      if (game.visibility !== 'public') fail(404, 'Game không khả dụng.');
-      if (!process.env.SUPABASE_URL || !process.env.SUPABASE_STORAGE_BUCKET) fail(503, 'Kho game chưa được cấu hình.');
-      const origin = new URL(process.env.SUPABASE_URL);
-      if (origin.protocol !== 'https:') fail(503, 'Kho game chưa được cấu hình.');
-      const path = [process.env.SUPABASE_STORAGE_BUCKET, ...stored.storage_object.split('/')].map(encodeURIComponent).join('/');
       res.set('Cache-Control', 'no-store');
-      return res.redirect(302, new URL('/storage/v1/object/public/' + path, origin).href);
+      return res.redirect(302, await jarStore.url(stored.storage_object, game.visibility));
     }
     res.type('application/java-archive'); res.set('Content-Disposition', 'attachment; filename="game.jar"');
     res.sendFile(resolve(uploads, `${game.id}.jar`), { cacheControl: false });
   });
   const upload = multer({ dest: temp, limits: { fileSize: 20 * 1024 * 1024, files: 1, fields: 5, fieldSize: 12000 }, fileFilter: (req, file, cb) => cb(/\.jar$/i.test(file.originalname) ? null : Object.assign(new Error('Chỉ nhận game .jar.'), { status: 400 }), /\.jar$/i.test(file.originalname)) });
   app.post('/api/games', member, rate('upload', 30, 3600000),uploadGuard(), upload.single('file'), async (req, res) => {
-    let destination;
+    let destination, remote, committed = false;
     try {
       const visibility = req.body.visibility || 'private';
       if (!['private', 'public'].includes(visibility)) fail(400, 'Chế độ game không hợp lệ.');
@@ -264,13 +266,14 @@ export async function createApp({ mediaStore = mediaStorage(), database, dataDir
       if (!req.file) fail(400, 'Hãy chọn tệp .jar.');
       const { title, description, category } = await gameFields(req.body, visibility);
       const bytesUsed = (await db.prepare('SELECT COALESCE(SUM(size),0) AS n FROM games WHERE owner_id=?').get(req.user.id)).n;
-      if (req.user.role !== 'admin' && bytesUsed + req.file.size > 200 * 1024 * 1024) fail(413, 'Kho game cá nhân tối đa 200 MB. Hãy xóa game không dùng.');
+      if (req.user.role !== 'admin' && Number(bytesUsed) + req.file.size > 200 * 1024 * 1024) fail(413, 'Kho game cá nhân tối đa 200 MB. Hãy xóa game không dùng.');
       try { await validateJar(req.file.path); } catch (error) { fail(400, error.message); }
       const icon = await extractJarIcon(req.file.path), publisher=await extractJarPublisher(req.file.path);
       const id = randomUUID(), sha = digest(readFileSync(req.file.path));
       const duplicate=await db.prepare("SELECT id,title,deleted_at FROM games WHERE sha256=? AND (visibility='public' OR owner_id=?) ORDER BY created_at LIMIT 1").get(sha,req.user.id);
       if(duplicate)return res.status(409).json({error:duplicate.deleted_at?'Tệp game đã có trong thùng rác. Hãy khôi phục thay vì tải lại.':'Tệp JAR này đã có trong kho. Mở game hiện có để quản lý nhóm phiên bản.',duplicate:{id:duplicate.id,title:duplicate.title,trashed:!!duplicate.deleted_at}});
-      destination = resolve(uploads, `${id}.jar`); renameSync(req.file.path, destination);
+      if (deployment.remoteJars) remote = {object:await jarStore.put(req.file, visibility, req.user.id, id), visibility};
+      else { destination = resolve(uploads, `${id}.jar`); renameSync(req.file.path, destination); }
       await db.transaction(async client => {
         await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[sha]);
         const existing=await client.query("SELECT id FROM games WHERE sha256=$1 AND (visibility='public' OR owner_id=$2)",[sha,req.user.id]);
@@ -278,13 +281,14 @@ export async function createApp({ mediaStore = mediaStorage(), database, dataDir
         // Serialize uploads by owner so parallel requests cannot exceed quota.
         await client.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [req.user.id]);
         const used = (await client.query('SELECT COALESCE(SUM(size),0) AS n FROM games WHERE owner_id=$1', [req.user.id])).rows[0].n;
-        if (req.user.role !== 'admin' && used + req.file.size > 200 * 1024 * 1024) fail(413, 'Kho game cá nhân tối đa 200 MB.');
-        await client.query('INSERT INTO games(id,owner_id,visibility,category_id,title,description,filename,size,sha256,icon_data,publisher) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [id, req.user.id, visibility, category, title, description, 'game.jar', req.file.size, sha, icon,publisher]);
+        if (req.user.role !== 'admin' && Number(used) + req.file.size > 200 * 1024 * 1024) fail(413, 'Kho game cá nhân tối đa 200 MB.');
+        await client.query('INSERT INTO games(id,owner_id,visibility,category_id,title,description,filename,size,sha256,icon_data,publisher,storage_object) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)', [id, req.user.id, visibility, category, title, description, 'game.jar', req.file.size, sha, icon,publisher,remote?.object || null]);
       });
-      destination = null; res.status(201).json(await gameFor(req, id));
+      committed = true; destination = null; res.status(201).json(await gameFor(req, id));
     } finally {
       if (req.file) rmSync(req.file.path, { force: true });
       if (destination) rmSync(destination, { force: true });
+      if (remote && !committed) { try { await jarStore.remove(remote.object, remote.visibility); } catch { console.error("JAR rollback cleanup failed"); } }
     }
   });
   app.patch('/api/games/:id', member, async (req, res) => {
