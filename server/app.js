@@ -239,8 +239,8 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
     res.json({...game, variants, last_played_id:lastPlayedId});
   });
   app.get('/api/games/:id/icon', async (req, res) => {
-    const game = await gameFor(req, req.params.id);
-    const row = await db.prepare('SELECT icon_data FROM games WHERE id=?').get(game.id);
+    const row = await db.prepare("SELECT icon_data FROM games WHERE id=? AND deleted_at IS NULL AND (visibility='public' OR owner_id=?) AND (NOT hidden OR ?)").get(req.params.id, req.user?.id || '', req.user?.role === 'admin');
+    if (!row) fail(404, 'Không tìm thấy game hoặc bạn không có quyền truy cập.');
     const match = /^data:image\/(png|gif);base64,([A-Za-z0-9+/=]+)$/.exec(row?.icon_data || '');
     if (!match) return res.status(404).end();
     res.set('Cache-Control', 'private, max-age=3600');

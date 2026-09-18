@@ -240,14 +240,16 @@ async function render() {
   content.setAttribute('aria-busy', 'true');
   content.innerHTML = '<p class="muted" role="status">Đang tải…</p>';
   try {
-    state.categories = await api('/categories');
+    const listing = ['games','history','mine'].includes(r.view) && (state.user || (r.view === 'games' && r.query.get('favorite') !== '1'));
+    if (!listing) state.categories = await api('/categories');
     let html;
     if (['games','history','mine'].includes(r.view)) {
       const config = { games:['Kho game','Game công khai, phân loại theo thể loại.'], history:['Đã chơi','Chọn một game để quay lại. Tiến trình game vẫn lưu trên trình duyệt.'], mine:['Game của tôi','Kho riêng của bạn. Người khác không thể xem hoặc tải game tại đây.'] }[r.view];
       if ((r.view !== 'games' || r.query.get('favorite')==='1') && !state.user) html = heading(...config) + empty('Đăng nhập để mở thư viện', 'Danh sách game và lịch sử chơi được gắn với tài khoản của bạn.', button('login','Đăng nhập','','primary'));
       else {
         const q = new URLSearchParams(r.query); q.set('scope', r.view === 'games' ? (r.query.get('favorite')==='1'?'favorites':'public') : r.view);
-        const data = await api(`/games?${q}`);
+        const [categories, data] = await Promise.all([api('/categories'), api(`/games?${q}`)]);
+        state.categories = categories;
         html = heading(...config, button('upload','Tải game riêng','','primary')) + `<form data-form="filter" class="filters"><input name="q" type="search" placeholder="Tìm tên game…" aria-label="Tìm game" value="${esc(r.query.get('q'))}"><select name="category" aria-label="Thể loại">${categoryOptions(r.query.get('category'))}</select><button>Tìm game</button></form><div class="section-label"><span>${data.total} game${r.view === 'mine' ? ' · Chỉ mình bạn' : ''}</span><a href="/library">Game trên máy</a></div>` + (data.items.length ? gameCards(data.items) : empty(r.query.get('q') || r.query.get('category') ? 'Không tìm thấy game' : 'Chưa có game', r.view === 'games' ? 'Admin có thể thêm game theo thể loại. Bạn cũng có thể tải game riêng để chơi.' : r.view === 'history' ? 'Game sẽ xuất hiện ở đây sau khi mở màn hình chơi.' : 'Chọn game .jar từ máy, lưu vào kho riêng rồi chơi.')) + pager(data, r);
       }
     } else if (r.view === 'game') {

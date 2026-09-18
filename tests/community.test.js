@@ -213,7 +213,19 @@ test('public catalog, private uploads, history, permissions and archive validati
   assert.equal((await owner('/games',{method:'POST',body:upload('public',category.data.id)})).status,403);
   const published=await admin('/games',{method:'POST',body:upload('public',category.data.id)}); assert.equal(published.status,201,JSON.stringify(published.data));
   const own=await owner('/games',{method:'POST',body:upload()}); assert.equal(own.status,201);
+  const icon = 'data:image/png;base64,iVBORw0KGgo=';
+  await db.prepare('UPDATE games SET icon_data=? WHERE id IN (?,?)').run(icon,own.data.id,published.data.id);
+  const privateIcon = await owner(`/games/${own.data.id}/icon`);
+  assert.equal(privateIcon.status,200);
+  assert.match(privateIcon.headers.get('cache-control'),/^private/);
+  assert.deepEqual(Buffer.from(privateIcon.data),Buffer.from('iVBORw0KGgo=','base64'));
+  assert.equal((await guest(`/games/${published.data.id}/icon`)).status,200);
+  await db.prepare('UPDATE games SET hidden=true WHERE id=?').run(published.data.id);
+  assert.equal((await guest(`/games/${published.data.id}/icon`)).status,404);
+  assert.equal((await admin(`/games/${published.data.id}/icon`)).status,200);
+  await db.prepare('UPDATE games SET hidden=false WHERE id=?').run(published.data.id);
   for (const stranger of [other,guest,admin]) {
+    assert.equal((await stranger(`/games/${own.data.id}/icon`)).status,404);
     assert.equal((await stranger(`/games/${own.data.id}`)).status,404);
     assert.equal((await stranger(`/games/${own.data.id}/file`)).status,404);
     assert.equal((await stranger(`/games/${own.data.id}/play`,{method:'POST'})).status,stranger===guest?401:404);
@@ -235,6 +247,7 @@ test('public catalog, private uploads, history, permissions and archive validati
   assert.equal((await guest('/games?q=New')).data.total,1);
   assert.equal((await other(`/games/${own.data.id}`,{method:'DELETE'})).status,404);
   await owner(`/games/${own.data.id}`,{method:'DELETE'});
+  assert.equal((await owner(`/games/${own.data.id}/icon`)).status,404);
   assert.equal((await owner('/games?scope=history')).data.total,1);
   assert.equal((await readdir(join(dataDir,'uploads'))).length,2);
   assert.equal((await fetch(base+'/data/community.sqlite')).status,404);
