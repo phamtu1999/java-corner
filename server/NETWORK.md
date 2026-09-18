@@ -25,3 +25,11 @@ docker compose up -d --build
 ```
 
 Runtime hiện tại: `web/emulator/freej2me-web-relay-v2.jar`. Mã GPL bổ sung ở `web/emulator/network-src`; natives ở `web/emulator/src/relay.js`; chính sách IP ở `server/network-policy.js`. Nguồn và runtime FreeJ2ME gốc vẫn được giữ.
+
+## Resource protection
+
+Single-process limits: 4 live sockets/user, 60 handshake attempts/user/minute, 1,000 live sockets/process, 16 MiB bidirectional traffic/socket/minute. Login session revocation closes sockets immediately in this process; a 30-second validation loop also checks active sessions. Mail/infrastructure ports are blocked for both TCP and HTTP. GAME_ALLOWED_HOSTS optionally restricts exact hostnames; an empty list still permits other public destinations for JAR browser compatibility. This is not an abuse-proof public proxy.
+
+TRUST_PROXY accepts explicit trusted proxy addresses/CIDRs for HTTP client IP rate limits. Leave empty for direct access; do not trust arbitrary forwarded headers. Multi-instance deployment needs shared concurrency/quota enforcement and cross-process revocation.
+
+Uploads: one request/account per upload category, at most 2 cloud-save uploads or 4 game/media/avatar uploads per category in this process. Cloud saves spool to temporary disk before bounded processing; 50 MiB maximum remains. Forum media has a 200 MiB/account quota including soft-deleted posts; admission reserves 40 MiB before receiving attachments. At the boundary, removing existing attachments through edit can be refused; permanent deletion frees capacity.

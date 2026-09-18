@@ -1,3 +1,5 @@
+import {uploadGuard,mediaQuota} from './upload-guard.js';
+import {revokeRelay} from './game-network.js';
 import {publicCache} from './public-cache.js';
 import {installGameHttp} from './game-network.js';
 import express from 'express';
@@ -46,6 +48,7 @@ export async function createApp({ mediaStore = mediaStorage(), database, dataDir
   mkdirSync(uploads, { recursive: true }); mkdirSync(temp, { recursive: true });
   const app = express();
   app.disable('x-powered-by');
+  if(process.env.TRUST_PROXY)app.set('trust proxy',process.env.TRUST_PROXY.split(',').map(s=>s.trim()));
   app.use(async (req, res, next) => {
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Referrer-Policy', 'same-origin');
@@ -74,7 +77,7 @@ export async function createApp({ mediaStore = mediaStorage(), database, dataDir
   const limits = new Map();
   function rate(bucket, max, windowMs) {
     return async (req, res, next) => {
-      const now = Date.now(), key = `${bucket}:${req.user?.id || req.socket.remoteAddress}`;
+      const now = Date.now(), key = `${bucket}:${req.user?.id || req.ip}`;
       if (limits.size > 5000) for (const [k, value] of limits) if (value.until < now) limits.delete(k);
       let entry = limits.get(key);
       if (!entry || entry.until < now) { entry = { count: 0, until: now + windowMs }; limits.set(key, entry); }
@@ -112,6 +115,7 @@ export async function createApp({ mediaStore = mediaStorage(), database, dataDir
   });
   app.post('/api/logout', async (req, res) => {
     (await db.prepare('DELETE FROM sessions WHERE token=?').run(req.sessionHash));
+    revokeRelay(db,{token:req.sessionHash});
     res.clearCookie('java_session', cookieOptions); res.json({ ok: true });
   });
   app.post('/api/password', member, authLimit, async (req, res) => {
@@ -123,6 +127,7 @@ export async function createApp({ mediaStore = mediaStorage(), database, dataDir
       await client.query('UPDATE users SET password=$1 WHERE id=$2', [hash, user.id]);
       await client.query('DELETE FROM sessions WHERE user_id=$1', [user.id]);
     });
+    revokeRelay(db,{userId:user.id});
     await session(req, res, user);
   });
   app.get('/api/categories', async (req, res) => res.json((await db.prepare(`SELECT c.*,COUNT(g.id) AS games FROM categories c LEFT JOIN games g ON g.category_id=c.id AND g.visibility='public' AND g.deleted_at IS NULL GROUP BY c.id ORDER BY c.name`).all())));
@@ -147,7 +152,7 @@ export async function createApp({ mediaStore = mediaStorage(), database, dataDir
     if (!game) fail(404, 'Không tìm thấy game hoặc bạn không có quyền truy cập.');
     return game;
   }
-  installFeatures(app,{db,member,admin,gameFor,fail,field,rate});
+  installFeatures(app,{db,member,admin,gameFor,fail,field,rate,temp});
   installCommunityExtras(app,{db,member,admin,gameFor,fail,field,rate,mediaStore,temp,uploads});
   installSafetyFeatures(app,{db,member,admin,gameFor,fail,field,rate,mediaStore,uploads});
   installDiscoveryFeatures(app,{db,member,admin,gameFor,fail,field,rate});
@@ -250,7 +255,7 @@ export async function createApp({ mediaStore = mediaStorage(), database, dataDir
     res.sendFile(resolve(uploads, `${game.id}.jar`), { cacheControl: false });
   });
   const upload = multer({ dest: temp, limits: { fileSize: 20 * 1024 * 1024, files: 1, fields: 5, fieldSize: 12000 }, fileFilter: (req, file, cb) => cb(/\.jar$/i.test(file.originalname) ? null : Object.assign(new Error('Chỉ nhận game .jar.'), { status: 400 }), /\.jar$/i.test(file.originalname)) });
-  app.post('/api/games', member, rate('upload', 30, 3600000), upload.single('file'), async (req, res) => {
+  app.post('/api/games', member, rate('upload', 30, 3600000),uploadGuard(), upload.single('file'), async (req, res) => {
     let destination;
     try {
       const visibility = req.body.visibility || 'private';
@@ -327,8 +332,9 @@ export async function createApp({ mediaStore = mediaStorage(), database, dataDir
   });
   app.get('/api/posts/:id', async (req, res) => res.json({ ...(await postFor(req.params.id)), comments: (await db.prepare('SELECT c.*,u.name AS author,ru.name AS reply_author,rc.body AS reply_body FROM comments c JOIN users u ON c.user_id=u.id LEFT JOIN comments rc ON rc.id=c.reply_to LEFT JOIN users ru ON ru.id=rc.user_id WHERE c.post_id=? ORDER BY c.created_at,c.id LIMIT 500').all(req.params.id)) }));
   const writeLimit = rate('discussion', 20, 60000);
+  const mediaGuard=uploadGuard(),checkMediaQuota=mediaQuota(db);
   const postUpload = multer({dest:temp,limits:{fileSize:20*1024*1024,files:4,fields:4,fieldSize:40000}}).array('media',4);
-  app.post('/api/posts', member, writeLimit, (req,res,next) => postUpload(req,res,error => {
+  app.post('/api/posts', member, writeLimit,mediaGuard,checkMediaQuota, (req,res,next) => postUpload(req,res,error => {
     if (error) return next(Object.assign(new Error('Tối đa 4 tệp, mỗi video tối đa 20 MB, ảnh tối đa 8 MB.'),{status:400}));
     next();
   }), async (req, res) => {
@@ -350,7 +356,7 @@ export async function createApp({ mediaStore = mediaStorage(), database, dataDir
       throw error;
     } finally { for (const file of req.files || []) rmSync(file.path,{force:true}); }
   });
-  app.patch('/api/posts/:id', member, writeLimit, async (req, res, next) => {
+  app.patch('/api/posts/:id', member, writeLimit,mediaGuard,checkMediaQuota, async (req, res, next) => {
     const post = await postFor(req.params.id);
     if (post.user_id !== req.user.id && req.user.role !== 'admin') fail(403, 'Bạn không có quyền sửa bài viết.');
     next();

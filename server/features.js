@@ -1,7 +1,9 @@
+import {readFileSync,rmSync} from 'node:fs';
+import {uploadGuard} from './upload-guard.js';
 import multer from 'multer';
 import {randomUUID} from 'node:crypto';
 
-export function installFeatures(app, {db, member, admin, gameFor, fail, field, rate}) {
+export function installFeatures(app, {db, member, admin, gameFor, fail, field, rate, temp}) {
   const limited = rate('community-features', 60, 60000);
   const key = g => g.visibility === 'public' ? g.family_key || g.id : g.id;
   app.get('/api/games/:id/social', async (req,res) => {
@@ -73,15 +75,16 @@ export function installFeatures(app, {db, member, admin, gameFor, fail, field, r
     res.json({ok:true,changed});
   });
   // Account-private snapshot; revision prevents another device silently overwriting it.
-  const backupUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:50*1048576,files:1,fields:1}}).single('file');
+  const backupUpload=multer({dest:temp,limits:{fileSize:50*1048576,files:1,fields:1}}).single('file');
   app.get('/api/cloud-save',member,async(req,res)=>res.json(await db.prepare('SELECT revision,updated_at,octet_length(data) AS size FROM cloud_saves WHERE user_id=?').get(req.user.id)||null));
   app.get('/api/cloud-save/file',member,async(req,res)=>{
     const row=await db.prepare('SELECT data,revision FROM cloud_saves WHERE user_id=?').get(req.user.id);
     if(!row) fail(404,'Chưa có bản lưu trên tài khoản.');
     res.set('Content-Type','application/zip');res.set('X-Save-Revision',row.revision);res.send(row.data);
   });
-  app.post('/api/cloud-save',member,rate('cloud-save',10,3600000),backupUpload,async(req,res)=>{
-    const data=req.file?.buffer, revision=req.body.revision||'';
+  app.post('/api/cloud-save',member,rate('cloud-save',10,3600000),uploadGuard({max:2}),backupUpload,async(req,res)=>{
+    try {
+    const data=req.file?readFileSync(req.file.path):null, revision=req.body.revision||'';
     if(!data||data.length<4||data.readUInt32LE(0)!==0x04034b50) fail(400,'Bản lưu phải là ZIP được xuất từ thư viện.');
     const next=randomUUID();
     await db.transaction(async client=>{
@@ -93,5 +96,6 @@ export function installFeatures(app, {db, member, admin, gameFor, fail, field, r
       await client.query('DELETE FROM cloud_save_versions WHERE user_id=$1 AND revision NOT IN (SELECT revision FROM cloud_save_versions WHERE user_id=$1 ORDER BY updated_at DESC,revision LIMIT 4)',[req.user.id]);
     });
     res.json({revision:next});
+    } finally {if(req.file)rmSync(req.file.path,{force:true});}
   });
 }

@@ -1,3 +1,4 @@
+import {uploadGuard} from './upload-guard.js';
 import {randomUUID} from 'node:crypto';
 import {rmSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
@@ -40,7 +41,7 @@ export function installCommunityExtras(app,{db,member,admin,gameFor,fail,field,r
   res.json({...u,posts,collections});
  });
  const avatarUpload=multer({dest:temp,limits:{fileSize:8*1048576,files:1,fields:4}}).single('avatar');
- app.patch('/api/profile',member,limited,avatarUpload,async(req,res)=>{
+ app.patch('/api/profile',member,limited,uploadGuard(),avatarUpload,async(req,res)=>{
   let stored=null,committed=false;
   try{
    const bio=field(req.body.bio||'','Giới thiệu',0,1000),name=field(req.body.name,'Tên hiển thị',2,40);
