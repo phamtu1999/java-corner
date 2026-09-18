@@ -8,22 +8,24 @@ import {attachGameNetwork,revokeRelay} from '../server/game-network.js';
 test('relay rejects unauthenticated and forbidden targets, forwards binary TCP',async()=>{
  const tcp=net.createServer(s=>s.pipe(s));tcp.listen(0,'127.0.0.1');await once(tcp,'listening');
  const target='127.0.0.1:'+tcp.address().port;
- const db={prepare:()=>({get:async()=>({user_id:'test'})})};
+ const oldPolicy=process.env.GAME_NETWORK_ENDPOINTS;
+ process.env.GAME_NETWORK_ENDPOINTS=JSON.stringify({test:['tcp://'+target]});
+ const db={prepare:sql=>({get:async()=>sql.includes('rate_limits')?{hits:1,retry:60}:sql.includes('sha256')?{sha256:'test'}:{user_id:'test'}})};
  const server=http.createServer();const stop=attachGameNetwork(server,db,async value=>{if(value!==target)throw Error('blocked');return {address:'127.0.0.1',family:4,port:tcp.address().port};});
  server.listen(0,'127.0.0.1');await once(server,'listening');const origin=process.env.SITE_ORIGIN||'http://127.0.0.1:'+server.address().port;
- const base='ws://127.0.0.1:'+server.address().port+'/game-network?target=';
+ const base='ws://127.0.0.1:'+server.address().port+'/game-network?game_id=test&target=';
  try{
   for(const [dest,headers,status] of [[target,{origin},401],['127.0.0.1:22',{origin,cookie:'java_session=test'},403],[target,{origin:'http://evil.invalid',cookie:'java_session=test'},403]]){
    const ws=new WebSocket(base+dest,{headers});const response=await new Promise((resolve,reject)=>{ws.on('unexpected-response',(req,res)=>{res.resume();resolve(res.statusCode);req.destroy();});ws.on('error',()=>{});setTimeout(()=>reject(Error('timeout')),2000).unref();});assert.equal(response,status);
   }
   // Invalid handshakes must not consume the user's four live slots.
   for(let i=0;i<5;i++)await new Promise((resolve,reject)=>{
-   const req=http.request('http://127.0.0.1:'+server.address().port+'/game-network?target='+target,{headers:{origin,cookie:'java_session=test',Connection:'Upgrade',Upgrade:'websocket','Sec-WebSocket-Version':'99','Sec-WebSocket-Key':'dGhlIHNhbXBsZSBub25jZQ=='}},res=>{res.resume();res.on('end',()=>{try{assert.equal(res.statusCode,400);resolve();}catch(e){reject(e);}});});req.on('error',reject);req.end();
+   const req=http.request('http://127.0.0.1:'+server.address().port+'/game-network?game_id=test&target='+target,{headers:{origin,cookie:'java_session=test',Connection:'Upgrade',Upgrade:'websocket','Sec-WebSocket-Version':'99','Sec-WebSocket-Key':'dGhlIHNhbXBsZSBub25jZQ=='}},res=>{res.resume();res.on('end',()=>{try{assert.equal(res.statusCode,400);resolve();}catch(e){reject(e);}});});req.on('error',reject);req.end();
   });
   const ws=new WebSocket(base+target,{headers:{origin,cookie:'java_session=test'}});
   const [ready]=await once(ws,'message');assert.equal(ready.toString(),'ready');
   const reply=once(ws,'message');ws.send(Buffer.from([0,128,255,42]));assert.deepEqual((await reply)[0],Buffer.from([0,128,255,42]));const closed=once(ws,'close');revokeRelay(db,{userId:'test'});await closed;
- }finally{stop();server.close();tcp.close();}
+ }finally{if(oldPolicy===undefined)delete process.env.GAME_NETWORK_ENDPOINTS;else process.env.GAME_NETWORK_ENDPOINTS=oldPolicy;stop();server.close();tcp.close();}
 });
 
 import {publicAddress,resolvePublic} from '../server/network-policy.js';

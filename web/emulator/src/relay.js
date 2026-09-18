@@ -1,14 +1,16 @@
+import {communityGameId} from './community-bridge.js';
+const gameId=()=>communityGameId(new URLSearchParams(location.search).get('app')||'');
 const sockets=new Map();let nextId=1;
 function message(text){window.dispatchEvent(new CustomEvent('game-network-status',{detail:text}));}
 export default {
  async Java_javax_microedition_io_RelayHttp_exchange(lib,url,method,lines,body){
   try{const headers={};for(const line of lines.split('\n')){const i=line.indexOf(':');if(i>0)headers[line.slice(0,i)]=line.slice(i+1);}
-   const res=await fetch('/api/game-network/request',{method:'POST',headers:{'Content-Type':'application/json','X-Requested-With':'JavaCommunity'},body:JSON.stringify({url,method,headers,body}),signal:AbortSignal.timeout(20000)});
+   const res=await fetch('/api/game-network/request',{method:'POST',headers:{'Content-Type':'application/json','X-Requested-With':'JavaCommunity'},body:JSON.stringify({url,method,headers,body,game_id:gameId()}),signal:AbortSignal.timeout(20000)});
    if(!res.ok){message(res.status===401?'Cần đăng nhập website để dùng mạng game':res.status===403?'Địa chỉ mạng bị chặn bởi chính sách bảo vệ':res.status===429?'Quá nhiều yêu cầu mạng; chờ một chút rồi thử lại':'Máy chủ chuyển tiếp chưa kết nối được máy chủ game');return null;}const r=await res.json();message('Máy chủ HTTP đã phản hồi: '+r.status);return [r.status,r.message,r.body,...Object.entries(r.headers).map(([k,v])=>k+':'+(Array.isArray(v)?v.join('; '):v))].join('\n');
   }catch{message(navigator.onLine?'Yêu cầu HTTP hết thời gian hoặc không tới được máy chủ chuyển tiếp':'Máy tính đang ngoại tuyến');return null;}
  },
  async Java_javax_microedition_io_RelaySocket_connect(lib,target){
-  const url=new URL('/game-network',location.href);url.protocol=location.protocol==='https:'?'wss:':'ws:';url.searchParams.set('target',target);
+  const url=new URL('/game-network',location.href);url.protocol=location.protocol==='https:'?'wss:':'ws:';url.searchParams.set('target',target);url.searchParams.set('game_id',gameId()||'');
   return new Promise(resolve=>{
    const ws=new WebSocket(url);ws.binaryType='arraybuffer';const id=nextId++;
    const state={ws,queue:[],bytes:0,waiter:null,closed:false};sockets.set(id,state);let ready=false,settled=false;

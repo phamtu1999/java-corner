@@ -1,4 +1,5 @@
-import {resolveTarget,resolvePublic,checkDestination} from './network-policy.js';
+import {consumeRate} from './rate-limit.js';
+import {resolveTarget,resolvePublic,checkDestination,authorizeGameEndpoint} from './network-policy.js';
 import http from 'node:http';
 import https from 'node:https';
 import {WebSocketServer, WebSocket} from 'ws';
@@ -11,7 +12,7 @@ export function revokeRelay(db,{token,userId}) {
 }
 export function attachGameNetwork(server, db, resolveEndpoint=resolveTarget) {
  const wss=new WebSocketServer({noServer:true,maxPayload:65536,perMessageDeflate:false});
- const active=new Map(),attempts=new Map();
+ const active=new Map();
  relays.set(db,wss.clients);
  const validate=setInterval(async()=>{
   for(const ws of wss.clients){if(ws.checking)continue;ws.checking=true;
@@ -24,17 +25,14 @@ export function attachGameNetwork(server, db, resolveEndpoint=resolveTarget) {
    const url=new URL(req.url,'http://localhost');
    const origin=process.env.SITE_ORIGIN||`http://${req.headers.host}`;
    if(url.pathname!=='/game-network'||req.headers.origin!==origin)return reject(403);
-   const now=Date.now();
-   for(const [key,value] of attempts)if(value.until<now)attempts.delete(key);
    const target=url.searchParams.get('target');
    const token=(req.headers.cookie||'').split(';').map(s=>s.trim()).find(s=>s.startsWith('java_session='))?.slice(13);
    if(!token)return reject(401);
    const user=await db.prepare('SELECT user_id FROM sessions WHERE token=? AND expires>?').get(createHash('sha256').update(token).digest('hex'),Date.now());
    if(!user)return reject(401);
-   const attempt=attempts.get(user.user_id)||{count:0,until:now+60000};attempts.set(user.user_id,attempt);
-   if(++attempt.count>60||wss.clients.size>=1000)return reject(429);
+   if(!(await consumeRate(db,'game-socket',user.user_id,60,60000)).allowed||wss.clients.size>=1000)return reject(429);
    if((active.get(user.user_id)||0)>=4)return reject(429);
-   let endpoint;try{endpoint=await resolveEndpoint(target);}catch{return reject(403);}
+   let endpoint;try{await authorizeGameEndpoint(db,user.user_id,url.searchParams.get('game_id'),'tcp://'+target);endpoint=await resolveEndpoint(target);}catch{return reject(403);}
    if(socket.destroyed)return;
    if(wss.clients.size>=1000||(active.get(user.user_id)||0)>=4)return reject(429);
    active.set(user.user_id,(active.get(user.user_id)||0)+1);
@@ -72,11 +70,12 @@ export async function requestPublic(url,method='GET',headers={},body=Buffer.allo
   });const timer=setTimeout(()=>req.destroy(Error('Timeout')),15000);req.on('close',()=>clearTimeout(timer));req.on('error',reject);req.end(body);
  });
 }
-export function installGameHttp(app,member,limit) {
- app.get('/api/game-network/http',member,limit,async(req,res)=>{try{const r=await requestPublic(req.query.url);res.status(r.status).type('application/octet-stream').send(Buffer.from(r.body,'base64'));}catch{res.status(502).send('Network destination unavailable or blocked');}});
+export function installGameHttp(app,member,limit,db) {
+ app.get('/api/game-network/http',member,limit,async(req,res)=>{try{await authorizeGameEndpoint(db,req.user.id,req.query.game_id,req.query.url);}catch{return res.sendStatus(403);}try{const r=await requestPublic(req.query.url);res.status(r.status).type('application/octet-stream').send(Buffer.from(r.body,'base64'));}catch{res.status(502).send('Network destination unavailable or blocked');}});
  app.post('/api/game-network/request',member,limit,async(req,res)=>{
   try{const {url,method='GET',headers={},body=''}=req.body||{};
    if(typeof url!=='string'||!['GET','POST','HEAD','PUT','DELETE','PATCH','OPTIONS'].includes(method)||typeof body!=='string'||body.length>32000||!headers||Array.isArray(headers)||typeof headers!=='object')return res.sendStatus(400);
+   try{await authorizeGameEndpoint(db,req.user.id,req.body.game_id,url);}catch{return res.sendStatus(403);}
    res.json(await requestPublic(url,method,headers,Buffer.from(body,'base64')));
   }catch{res.status(502).json({error:'Network destination unavailable or blocked'});}
  });

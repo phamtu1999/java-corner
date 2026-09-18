@@ -33,9 +33,14 @@ export function installSafetyFeatures(app,{db,member,admin,gameFor,fail,field,ra
  });
  app.delete('/api/admin/trash/:kind/:id',member,admin,limit,async(req,res)=>{
   const {table,row}=await trashItem(req);if(req.body.confirm!==row.id)fail(400,'Cần xác nhận xóa vĩnh viễn.');
-  const media=table==='posts'?row.media||[]:(await db.prepare('SELECT media FROM posts WHERE game_id=?').all(row.id)).flatMap(p=>p.media||[]);
-  if(table==='games' && row.storage_object) await jarStore.remove(row.storage_object,row.visibility);
-  await mediaStore.remove(media);await db.prepare(`DELETE FROM ${table} WHERE id=? AND deleted_at IS NOT NULL`).run(row.id);
+  await db.transaction(async client=>{
+   const locked=(await client.query(`SELECT * FROM ${table} WHERE id=$1 AND deleted_at IS NOT NULL FOR UPDATE`,[row.id])).rows[0];
+   if(!locked)fail(409,'Nội dung đã được khôi phục hoặc xóa.');
+   const media=table==='posts'?locked.media||[]:(await client.query('SELECT media FROM posts WHERE game_id=$1',[row.id])).rows.flatMap(p=>p.media||[]);
+   if(table==='games' && locked.storage_object)await jarStore.remove(locked.storage_object,locked.visibility);
+   await mediaStore.remove(media);
+   await client.query(`DELETE FROM ${table} WHERE id=$1`,[row.id]);
+  });
   if(table==='games')rmSync(resolve(uploads,row.id+'.jar'),{force:true});res.json({ok:true});
  });
  app.get('/api/cloud-save/versions',member,async(req,res)=>res.json(await db.prepare(`SELECT revision,updated_at,octet_length(data) AS size FROM cloud_saves WHERE user_id=? UNION ALL SELECT revision,updated_at,octet_length(data) AS size FROM cloud_save_versions WHERE user_id=? ORDER BY updated_at DESC`).all(req.user.id,req.user.id)));

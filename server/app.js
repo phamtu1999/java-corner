@@ -1,3 +1,4 @@
+import {rateLimiter} from './rate-limit.js';
 import {gameStorage} from './game-storage.js';
 import {deploymentConfig} from './deployment.js';
 import {uploadGuard,mediaQuota} from './upload-guard.js';
@@ -50,6 +51,11 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
   mkdirSync(uploads, { recursive: true }); mkdirSync(temp, { recursive: true });
   const app = express();
   app.disable('x-powered-by');
+  const communityHtml=readFileSync(resolve(root,'web/index.html'),'utf8');
+  const scriptHashes=[...communityHtml.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>"'sha256-"+createHash('sha256').update(m[1]).digest('base64')+"'");
+  const mediaOrigin=process.env.SUPABASE_URL ? new URL(process.env.SUPABASE_URL).origin : '';
+  const communityCsp=["default-src 'self'",`script-src 'self' ${scriptHashes.join(' ')}`,"script-src-attr 'none'","style-src 'self' 'unsafe-inline'",`img-src 'self' data: blob: ${mediaOrigin}`,`media-src 'self' blob: ${mediaOrigin}`,"connect-src 'self'","object-src 'none'","base-uri 'none'","frame-ancestors 'self'","form-action 'self'"].join('; ');
+
   if(process.env.TRUST_PROXY)app.set('trust proxy',process.env.TRUST_PROXY.split(',').map(s=>s.trim()));
   app.use(async (req, res, next) => {
     res.set('X-Content-Type-Options', 'nosniff');
@@ -81,18 +87,8 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
   app.use('/api',publicCache());
   const member = async (req, res, next) => { if (!req.user) return res.status(401).json({ error: 'Bạn cần đăng nhập.' }); next(); };
   const admin = async (req, res, next) => { if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Chỉ quản trị viên được thực hiện thao tác này.' }); next(); };
-  const limits = new Map();
-  function rate(bucket, max, windowMs) {
-    return async (req, res, next) => {
-      const now = Date.now(), key = `${bucket}:${req.user?.id || req.ip}`;
-      if (limits.size > 5000) for (const [k, value] of limits) if (value.until < now) limits.delete(k);
-      let entry = limits.get(key);
-      if (!entry || entry.until < now) { entry = { count: 0, until: now + windowMs }; limits.set(key, entry); }
-      if (++entry.count > max) { res.set('Retry-After', String(Math.ceil((entry.until - now) / 1000))); return res.status(429).json({ error: 'Thao tác quá nhiều lần. Vui lòng thử lại sau.' }); }
-      next();
-    };
-  }
-  installGameHttp(app, member, rate('game-http', 30, 60000));
+  const rate = rateLimiter(db);
+  installGameHttp(app, member, rate('game-http', 30, 60000), db);
   const authLimit = rate('auth', 20, 15 * 60 * 1000);
   async function session(req, res, user) {
     (await db.prepare('DELETE FROM sessions WHERE expires<? OR token=?').run(Date.now(), req.sessionHash));
@@ -108,7 +104,7 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
     const hash = await hashPassword(password);
     const user = { id: randomUUID(), email, name, role: 'member' };
     try { (await db.prepare('INSERT INTO users(id,email,name,password) VALUES (?,?,?,?)').run(user.id, email, name, hash)); }
-    catch (e) { if (e.code === '23505') fail(409, 'Email này đã được đăng ký.'); throw e; }
+    catch (e) { if (e.code === '23505') fail(409, 'Không thể tạo tài khoản với thông tin này. Hãy đăng nhập hoặc dùng thông tin khác.'); throw e; }
     await session(req, res, user);
   });
   // A real hash for unknown users keeps password verification on both paths.
@@ -438,6 +434,7 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
   });
   app.get(/^\/(?:|games|forum|history|mine|admin|login|register|account|game\/[^/]+|post\/[^/]+)\/?$/, (req, res) => {
     res.set('Cache-Control', 'no-cache');
+    res.set('Content-Security-Policy',communityCsp);
     res.sendFile(resolve(root, 'web/index.html'));
   });
   app.use((req,res,next)=>{

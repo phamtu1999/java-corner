@@ -302,7 +302,7 @@ test('database and sessions survive reopening; runtime remains range-enabled', a
 test('PostgreSQL tables deny browser roles and rollback partial writes', async t => {
   const { db, schema } = await setup(t);
   const tables = await db.query('SELECT relname,relrowsecurity FROM pg_class JOIN pg_namespace n ON n.oid=relnamespace WHERE n.nspname=$1 AND relkind=$2', [schema,'r']);
-  const expected=['users','sessions','categories','games','history','posts','comments','favorites','reviews','game_reports','notifications','cloud_saves','collections','collection_games','game_checks','admin_audit','game_guides','content_reports','cloud_save_versions','topic_follows','game_requests','game_updates'];
+  const expected=['rate_limits','users','sessions','categories','games','history','posts','comments','favorites','reviews','game_reports','notifications','cloud_saves','collections','collection_games','game_checks','admin_audit','game_guides','content_reports','cloud_save_versions','topic_follows','game_requests','game_updates'];
   assert.deepEqual(tables.rows.map(row=>row.relname).sort(),expected.slice().sort());
   assert.ok(tables.rows.every(row => row.relrowsecurity));
   for (const role of ['anon','authenticated']) {
@@ -508,7 +508,7 @@ test('remote JAR uploads persist metadata, enforce download ownership and roll b
  const put=[],removed=[],signed=[];
  const jarStore={put:async(file,visibility,owner,id)=>{const object=`uploads/${owner}/${id}.jar`;put.push(object);return object;},remove:async(object)=>removed.push(object),url:async(object,visibility)=>{signed.push({object,visibility});return '/api/me';}};
  const {client,db,dataDir}=await setup(t,{deployment:{remoteJars:true,uploadLimit:4194304},jarStore});
- const owner=client(),other=client();await register(owner,'remote_owner');await register(other,'remote_other');
+ const owner=client(),other=client();const account=await register(owner,'remote_owner');await register(other,'remote_other');
  const uploaded=await owner('/games',{method:'POST',body:upload()});assert.equal(uploaded.status,201);
  const id=uploaded.data.id;
  assert.equal((await db.prepare('SELECT storage_object FROM games WHERE id=?').get(id)).storage_object,put[0]);
@@ -518,6 +518,15 @@ test('remote JAR uploads persist metadata, enforce download ownership and roll b
  const transaction=db.transaction;db.transaction=async()=>{throw new Error('simulated persistence failure');};
  try {assert.equal((await owner('/games',{method:'POST',body:upload()})).status,500);}finally{db.transaction=transaction;}
  assert.deepEqual(removed,[put[1]]);assert.deepEqual(await readdir(join(dataDir,'tmp')),[]);
+ await db.prepare("UPDATE users SET role='admin' WHERE id=?").run(account.id);
+ await owner(`/games/${id}`,{method:'DELETE'});
+ const remove=jarStore.remove;jarStore.remove=async()=>{throw Error('storage unavailable');};
+ assert.equal((await owner(`/admin/trash/game/${id}`,{method:'DELETE',body:{confirm:id}})).status,500);
+ assert.ok(await db.prepare('SELECT id FROM games WHERE id=?').get(id));
+ jarStore.remove=remove;
+ assert.equal((await owner(`/admin/trash/game/${id}`,{method:'DELETE',body:{confirm:id}})).status,200);
+ assert.equal(removed.at(-1),put[0]);assert.equal(await db.prepare('SELECT id FROM games WHERE id=?').get(id),undefined);
+
 });
 
 
@@ -529,4 +538,21 @@ test('transaction pool keeps actor context isolated and recovers after query fai
  })));
  await assert.rejects(db.query('SELECT missing_column_for_rollback_test'));
  assert.equal((await db.query("SELECT current_setting('app.actor_id',true) AS actor")).rows[0].actor,'');
+});
+
+
+test('shared rate counter is atomic across independent database pools and expires',async t=>{
+ const {db,schema,base}=await setup(t);
+ const {consumeRate}=await import('../server/rate-limit.js');
+ const other=await openDatabase({schema});t.after(()=>other.close());
+ const results=await Promise.all(Array.from({length:12},(_,i)=>consumeRate(i%2?db:other,'security','subject',5,60000)));
+ assert.equal(results.filter(r=>r.allowed).length,5);
+ await db.query("UPDATE rate_limits SET expires_at=now()-interval '1 second'");
+ assert.equal((await consumeRate(other,'security','subject',5,60000)).allowed,true);
+ const page=await fetch(base+'/');const policy=page.headers.get('content-security-policy');
+ assert.match(policy,/script-src 'self' 'sha256-/);assert.match(policy,/object-src 'none'/);assert.match(policy,/base-uri 'none'/);
+ assert.doesNotMatch(policy,/unsafe-eval/);
+ assert.equal((await fetch(base+'/play')).headers.get('content-security-policy'),null);
+ const privateTable=await db.query("SELECT relrowsecurity FROM pg_class WHERE oid='rate_limits'::regclass");
+ assert.equal(privateTable.rows[0].relrowsecurity,true);
 });

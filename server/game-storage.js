@@ -35,6 +35,8 @@ export function gameStorage({env = process.env, request = fetch} = {}) {
       const {origin, bucket} = config(visibility, visibility !== 'public');
       const path = encode(bucket+'/'+object);
       if (visibility === 'public') return new URL('/storage/v1/object/public/'+path, origin).href;
+      const metadata=await (await call(visibility,'bucket/'+encodeURIComponent(bucket),{})).json();
+      if(metadata.public!==false)throw Object.assign(new Error('Bucket JAR riêng phải tắt Public.'),{status:503});
       const data = await (await call(visibility, 'object/sign/'+path, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expiresIn:60})})).json();
       if (typeof data.signedURL !== 'string') throw new Error('Supabase không trả về URL tải JAR.');
       const url = new URL(data.signedURL, new URL('/storage/v1/', origin));

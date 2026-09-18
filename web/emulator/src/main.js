@@ -3,7 +3,7 @@ import './touch-settings.js';
 import {setupGamepad} from './gamepad.js';
 import './support.js';
 import {setupTextInput} from './text-input.js?v=1';
-import relayNatives from './relay.js?v=2';
+import relayNatives from './relay.js?v=3';
 import { communityGameId, resolveCommunityGame, recordPlay } from "./community-bridge.js";
 import {preferences,setupPreferences} from './preferences.js';
 import {setupScreenshot} from './screenshot.js';

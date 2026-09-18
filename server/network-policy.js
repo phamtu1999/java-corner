@@ -1,5 +1,23 @@
 import {lookup} from 'node:dns/promises';
 import ipaddr from 'ipaddr.js';
+export function allowedGameEndpoint(sha256,target,policy=process.env.GAME_NETWORK_ENDPOINTS||'{}') {
+ const rules=JSON.parse(policy);
+ const u=new URL(target);
+ if(!['tcp:','http:','https:'].includes(u.protocol)||u.username||u.password)throw Error('Invalid endpoint');
+ const port=Number(u.port||(u.protocol==='https:'?443:u.protocol==='http:'?80:0));
+ checkDestination(u.hostname,port);
+ const endpoints=Object.hasOwn(rules,sha256)?rules[sha256]:null;
+ if(!Array.isArray(endpoints)||!endpoints.some(value=>{
+  try{const allowed=new URL(value);return !allowed.username&&!allowed.password&&allowed.protocol===u.protocol&&allowed.hostname===u.hostname&&Number(allowed.port||(allowed.protocol==='https:'?443:allowed.protocol==='http:'?80:0))===port;}catch{return false;}
+ }))throw Error('Game endpoint not allowed');
+}
+
+export async function authorizeGameEndpoint(db,userId,gameId,target) {
+ if(typeof gameId!=='string'||!gameId||gameId.length>64)throw Error('Game required');
+ const game=await db.prepare("SELECT sha256 FROM games WHERE id=? AND deleted_at IS NULL AND NOT hidden AND (visibility='public' OR owner_id=?)").get(gameId,userId);
+ if(!game)throw Error('Game unavailable');
+ allowedGameEndpoint(game.sha256,target);
+}
 export function publicAddress(address){try{return ipaddr.process(address).range()==='unicast';}catch{return false;}}
 export async function resolvePublic(host){
  host=host.replace(/^\[|\]$/g,'');

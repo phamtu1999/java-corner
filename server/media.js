@@ -1,11 +1,19 @@
 import {readFile} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {fileTypeFromFile} from 'file-type';
+import sharp from 'sharp';
 const allowed = new Set(['image/jpeg','image/png','image/gif','image/webp','video/mp4','video/webm']);
 export async function inspectMedia(file) {
   const type = await fileTypeFromFile(file.path);
   if (!type || !allowed.has(type.mime)) throw Object.assign(new Error('Chỉ nhận ảnh JPG, PNG, GIF, WebP và video MP4, WebM hợp lệ.'),{status:400});
   if (type.mime.startsWith('image/') && file.size > 8*1024*1024) throw Object.assign(new Error('Ảnh tối đa 8 MB.'),{status:400});
+  if(type.mime.startsWith('image/')) {
+    try {
+      const meta=await sharp(file.path,{limitInputPixels:20000000}).metadata();
+      const height=meta.pageHeight||meta.height,frames=meta.pages||1;
+      if(!meta.width||!height||meta.width>8192||height>8192||frames>100||meta.width*height*frames>20000000)throw Error('Image dimensions');
+    } catch {throw Object.assign(new Error('Ảnh không hợp lệ hoặc vượt giới hạn 8192 px, 20 megapixel tổng các khung hình, 100 khung hình.'),{status:400});}
+  }
   return type;
 }
 export function mediaStorage() {

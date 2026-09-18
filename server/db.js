@@ -80,7 +80,7 @@ export async function migrateDatabase(db) {
     // through PostgREST. All access goes through authenticated Express routes.
     const roles = (await client.query("SELECT rolname FROM pg_roles WHERE rolname IN ('anon','authenticated')")).rows;
     for (const { rolname } of roles) {
-      await client.query(`REVOKE ALL ON users,sessions,categories,games,history,posts,comments,favorites,reviews,game_reports,notifications,cloud_saves,collections,collection_games,game_checks,admin_audit,game_guides,content_reports,cloud_save_versions,topic_follows,game_requests,game_updates FROM "${rolname}"`);
+      await client.query(`REVOKE ALL ON rate_limits,users,sessions,categories,games,history,posts,comments,favorites,reviews,game_reports,notifications,cloud_saves,collections,collection_games,game_checks,admin_audit,game_guides,content_reports,cloud_save_versions,topic_follows,game_requests,game_updates FROM "${rolname}"`);
     }
   });
 }

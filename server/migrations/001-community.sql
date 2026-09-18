@@ -204,3 +204,11 @@ REVOKE ALL ON topic_follows,game_requests,game_updates FROM PUBLIC;
 ALTER TABLE game_checks ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'works' CHECK (status IN ('works','graphics','network','startup'));
 
 ALTER TABLE game_checks ADD COLUMN IF NOT EXISTS configuration TEXT NOT NULL DEFAULT '';
+
+-- Shared across serverless instances; no browser/PostgREST access.
+CREATE TABLE IF NOT EXISTS rate_limits (
+ key TEXT PRIMARY KEY,hits BIGINT NOT NULL,expires_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS rate_limits_expiry ON rate_limits(expires_at);
+ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON rate_limits FROM PUBLIC;
