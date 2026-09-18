@@ -1,3 +1,4 @@
+import {readLibraryPreview,writeLibraryPreview} from './library-preview.js';
 import {confirmAction,showMessage} from '../../ui/dialogs.js';
 import {iconButton,compactGameActions} from './library-icons.js';
 import {addUpdateCheck} from './catalog-updates.js';
@@ -44,7 +45,14 @@ function setupLibraryTools(){
 function visibleGames(games){return games.filter(game=>{if(game.appId.startsWith('community_')){const source=communityGameId(game.appId);if(!source||game.appId!==communityAppId(source,communityUser))return false;}return normalizeSearch(game.name).includes(libraryQuery)&&(!libraryRecent||lastPlayed(game.appId)>Date.now()-7*86400000);});}
 
 async function main() {
-    const userReady=currentUser().then(user=>{communityUser=user;}).catch(()=>{});
+    let previewPending=true;
+    const userReady=currentUser().then(user=>{
+        communityUser=user;
+        if(previewPending){
+            const cached=readLibraryPreview(localStorage,user);
+            if(cached?.length)fillGamesList(cached,true);
+        }
+    }).catch(()=>{});
     const controls=[...document.querySelectorAll('#main button,#main input,#main select')];
     const disabled=controls.map(control=>control.disabled);
     controls.forEach(control=>control.disabled=true);
@@ -68,6 +76,7 @@ async function main() {
     await javaToKv(Config.DEFAULT_SETTINGS, defaultSettings);
 
     await userReady;
+    previewPending=false;
     await reloadUI();
     setupLibraryTools();
     controls.forEach((control,i)=>control.disabled=disabled[i]);
@@ -228,7 +237,7 @@ async function removeInstalledGame(game, control) {
     catch (error) { await showMessage('Không thể gỡ game: ' + error.message); control.disabled = false; }
 }
 
-function fillGamesList(games) {
+function fillGamesList(games, preview=false) {
     games = visibleGames(games);
     if(gameSort.value==='recent')games.sort((a,b)=>lastPlayed(b.appId)-lastPlayed(a.appId));
     if(gameSort.value==='size')games.sort((a,b)=>(b.bytes||0)-(a.bytes||0));
@@ -294,6 +303,10 @@ function fillGamesList(games) {
         removeButton.onclick = () => removeInstalledGame(game, removeButton);
         item.appendChild(removeButton);
 
+        if(preview){
+            select.disabled=true;manageButton.disabled=true;removeButton.disabled=true;
+            compactGameActions(item);container.appendChild(item);continue;
+        }
         addGameBackup(item,game,async()=>await lib.org.recompile.freej2me.GameSave,()=>fillGamesList(state.games));
         const profile=document.createElement('button');profile.className='game-action';profile.textContent='Cấu hình tốt';profile.type='button';
         profile.onclick=()=>{
@@ -662,6 +675,7 @@ async function reloadUI() {
     state.currentGame = null;
 
     state.games = await loadGames();
+    try{writeLibraryPreview(localStorage,communityUser,state.games.filter(game=>!game.appId.startsWith("community_")||game.appId===communityAppId(communityGameId(game.appId)||"",communityUser)));}catch{}
     const installed=new Set(state.games.map(game=>game.appId));
     for(const id of selectedGames)if(!installed.has(id))selectedGames.delete(id);
     fillGamesList(state.games);
