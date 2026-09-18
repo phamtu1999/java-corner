@@ -10,7 +10,7 @@ Vercel tự quản lý HTTP listener; không chạy `npm start` hoặc Docker tr
 - Build Command: `npm run vercel-build`.
 - Output Directory: `public`.
 - Install Command: `npm ci`.
-- Node.js: **22.x**.
+- Node.js: **24.x**.
 
 Thêm Environment Variables ở **Production**:
 

@@ -4,7 +4,7 @@ Cộng đồng game Java ME chạy trên trình duyệt: kho game công khai, t�
 
 ## Chạy trên máy
 
-Cần **Node.js 22.13 trở lên** (kết nối PostgreSQL trên Supabase):
+Cần **Node.js 24.x** (kết nối PostgreSQL trên Supabase):
 
 ```sh
 npm ci
