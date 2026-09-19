@@ -6,7 +6,7 @@ import { decorateAccount } from '../ui/site.js?v=20260918-1';
 import {enhanceFeatures} from './features.js?v=20260919-boot-tests';
 import {enhanceExtras} from './extras.js?v=20260919-inspector-stock';
 import {setupHeaderTools,openAccount} from '../ui/header-tools.js?v=20260917-6';
-import {enhanceSafety} from './safety-features.js';
+import {enhanceSafety} from './safety-features.js?v=20260919-filters';
 import {enhanceDiscovery} from './discovery-features.js';
 const $ = s => document.querySelector(s);
 const content = $('#content'), modal = $('#modal');
@@ -301,7 +301,7 @@ async function render() {
       else html += '<p class="note">Game này chỉ có trong kho riêng của bạn và không xuất hiện trên diễn đàn.</p>';
     } else if (r.view === 'forum') {
       const data = await api(`/posts?${r.query}`);
-      html = heading('Diễn đàn','Hướng dẫn, hỏi đáp và thảo luận về game Java.',button('new-post','Viết bài','','primary')) + `<form data-form="filter" class="filters"><input name="q" type="search" aria-label="Tìm bài viết" placeholder="Tìm trong các cuộc thảo luận…" value="${esc(r.query.get('q'))}"><label>Tác giả<input name="author" value="${esc(r.query.get('author'))}" maxlength="40" placeholder="Tên thành viên"></label><label>Sắp xếp<select name="sort"><option value="">Mới nhất</option><option value="oldest" ${r.query.get('sort')==='oldest'?'selected':''}>Cũ nhất</option><option value="replies" ${r.query.get('sort')==='replies'?'selected':''}>Nhiều trả lời</option></select></label><label><input type="checkbox" name="unanswered" value="1" ${r.query.get('unanswered')==='1'?'checked':''}> Chưa có trả lời</label>${state.user?`<label><input type="checkbox" name="mine" value="1" ${r.query.get('mine')==='1'?'checked':''}> Bài của tôi</label>`:''}<button>Tìm bài viết</button><a href="/forum">Xóa bộ lọc</a></form>${topics(data.items)}${pager(data,r)}`;
+      html = heading('Diễn đàn','Hướng dẫn, hỏi đáp và thảo luận về game Java.',button('new-post','Viết bài','','primary')) + `<form data-form="filter" class="filters forum-filters"><input name="q" type="search" aria-label="Tìm bài viết" placeholder="Tìm trong các cuộc thảo luận…" value="${esc(r.query.get('q'))}"><button>Tìm bài viết</button><a class="forum-reset" href="/forum" aria-label="Xóa bộ lọc" title="Xóa bộ lọc">↺</a><details class="forum-filter-options" ${['author','sort','unanswered','mine','tag'].some(k=>r.query.get(k))?'open':''}><summary>Bộ lọc${['author','sort','unanswered','mine','tag'].filter(k=>r.query.get(k)).length?' · '+['author','sort','unanswered','mine','tag'].filter(k=>r.query.get(k)).length:''}</summary><div class="forum-filter-fields"><label>Tác giả<input name="author" value="${esc(r.query.get('author'))}" maxlength="40" placeholder="Tên thành viên"></label><label>Sắp xếp<select name="sort"><option value="">Mới nhất</option><option value="oldest" ${r.query.get('sort')==='oldest'?'selected':''}>Cũ nhất</option><option value="replies" ${r.query.get('sort')==='replies'?'selected':''}>Nhiều trả lời</option></select></label><label><input type="checkbox" name="unanswered" value="1" ${r.query.get('unanswered')==='1'?'checked':''}> Chưa có trả lời</label>${state.user?`<label><input type="checkbox" name="mine" value="1" ${r.query.get('mine')==='1'?'checked':''}> Bài của tôi</label>`:''}</div></details></form>${topics(data.items)}${pager(data,r)}`;
     } else if (r.view === 'post') {
       const p = await api(`/posts/${r.id}`);
       const canDelete = owner => state.user && (state.user.id === owner || state.user.role === 'admin');

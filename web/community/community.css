@@ -98,3 +98,18 @@
 .catalog-discovery{padding:10px;border-bottom:1px solid var(--line)}.catalog-discovery nav{display:flex;gap:8px;flex-wrap:wrap;padding-top:10px}.catalog-discovery [aria-current]{background:#dff4ff;border-color:#008fc6}.advanced-catalog{flex:1 0 100%;min-width:0;padding:8px;background:#f4f9fc}.advanced-catalog>div{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;padding:12px 0}.advanced-catalog select,.advanced-catalog input{width:100%;min-width:0}.profile-progress{padding:16px;border:1px solid var(--line);margin-top:16px}.profile-progress li{padding:5px 0}.catalog-discovery summary,.advanced-catalog summary{cursor:pointer;min-height:32px}
 
 .health-item{min-width:0;overflow-wrap:anywhere;padding:14px 0;border-bottom:1px solid var(--line)}.health-item>small{display:block;margin-top:4px;color:var(--muted)}.health-action{margin:10px 0}.health-action button{min-height:40px}.health-result:empty{display:none}.health-result{padding:12px;background:#f4f9fc;border:1px solid var(--line)}.health-result dd{margin:4px 0 12px}.health-result ul{padding-left:20px}
+
+/* Compact forum filters; native details keeps keyboard controls accessible. */
+.filters.forum-filters{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:8px;margin:0;padding:8px;background:#f4f9fc;border-bottom:1px solid var(--line)}
+.forum-filters>input[type=search]{width:100%;min-width:0;height:40px}
+.forum-filters>button,.forum-reset,.forum-filter-options>summary{min-height:40px;box-sizing:border-box;white-space:nowrap}
+.forum-reset{display:grid;place-items:center;width:40px;border:1px solid var(--line);background:white;border-radius:4px;font-size:20px;color:var(--deep)}
+.forum-filter-options{grid-column:3;grid-row:1;min-width:0}
+.forum-filter-options>summary{cursor:pointer;padding:10px;border:1px solid var(--line);border-radius:4px;background:white;color:var(--deep)}
+.forum-filter-options[open]{grid-column:1/-1;grid-row:2}
+.forum-filter-options[open]>summary{width:max-content;margin-bottom:8px}
+.forum-filter-fields{display:grid;grid-template-columns:minmax(120px,1fr) minmax(120px,1fr) auto auto minmax(120px,1fr);gap:12px;align-items:end}
+.forum-filters .forum-filter-fields select,.forum-filters .forum-filter-fields input:not([type=checkbox]){width:100%;min-width:0;height:40px}
+.forum-filter-fields label:has(input[type=checkbox]){min-height:40px;gap:6px}
+.forum-filter-options>summary:focus-visible,.forum-reset:focus-visible{outline:2px solid var(--deep);outline-offset:2px}
+@media(max-width:600px){.filters.forum-filters{grid-template-columns:minmax(0,1fr) auto auto}.forum-filters>input[type=search]{grid-column:1/-1}.forum-filter-options{grid-column:2;grid-row:2}.forum-filter-options[open]{grid-column:1/-1;grid-row:3}.forum-filter-fields{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.forum-filter-fields label:last-child{grid-column:1/-1}}
