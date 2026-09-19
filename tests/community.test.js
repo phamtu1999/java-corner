@@ -352,7 +352,7 @@ test('database and sessions survive reopening; runtime remains range-enabled', a
 test('PostgreSQL tables deny browser roles and rollback partial writes', async t => {
   const { db, schema } = await setup(t);
   const tables = await db.query('SELECT relname,relrowsecurity FROM pg_class JOIN pg_namespace n ON n.oid=relnamespace WHERE n.nspname=$1 AND relkind=$2', [schema,'r']);
-  const expected=['game_cloud_saves','rate_limits','users','sessions','categories','games','history','posts','comments','favorites','reviews','game_reports','notifications','cloud_saves','collections','collection_games','game_checks','admin_audit','game_guides','content_reports','cloud_save_versions','topic_follows','game_requests','game_updates'];
+  const expected=['player_profiles','game_cloud_saves','rate_limits','users','sessions','categories','games','history','posts','comments','favorites','reviews','game_reports','notifications','cloud_saves','collections','collection_games','game_checks','admin_audit','game_guides','content_reports','cloud_save_versions','topic_follows','game_requests','game_updates'];
   assert.deepEqual(tables.rows.map(row=>row.relname).sort(),expected.slice().sort());
   assert.ok(tables.rows.every(row => row.relrowsecurity));
   for (const role of ['anon','authenticated']) {
@@ -659,4 +659,21 @@ test('boot queue restricts access, running leases and cover SHA',async t=>{
  assert.match((await db.prepare('SELECT icon_data FROM games WHERE id=?').get(game.id)).icon_data,/^data:image\/png;base64,/);
  await db.prepare("UPDATE games SET sha256='changed' WHERE id=?").run(game.id);
  assert.equal((await a(cover,{method:'POST',body:{index:0}})).status,409);
+});
+
+
+test('player profiles isolate accounts, validate settings and reject stale revisions',async t=>{
+ const {client,db}=await setup(t),a=client(),b=client(),guest=client();await register(a,'profile_owner');await register(b,'profile_other');
+ const game=(await a('/games',{method:'POST',body:upload()})).data;
+ const path=`/games/${game.id}/player-profile`;
+ assert.equal((await guest(path)).status,401);assert.equal((await b(path)).status,404);
+ const put=body=>a(path,{method:'PUT',body});
+ assert.equal((await put({revision:'',section:'browser',value:{password:'no'}})).status,400);
+ assert.equal((await put({revision:'',section:'settings',value:{width:'9999'}})).status,400);
+ const one=await put({revision:'',section:'browser',value:{preferences:{volume:.5,zoom:1},keys:{KeyA:'ArrowLeft'},layout:'nokia-6300'}});assert.equal(one.status,200,JSON.stringify(one.data));
+ assert.equal((await put({revision:'',section:'browser',value:{}})).status,409);
+ const two=await put({revision:one.data.revision,section:'settings',value:{width:'240',height:'320',fps:'30'}});assert.equal(two.status,200);assert.equal(two.data.profile.browser.preferences.volume,.5);
+ assert.equal((await a(path)).data.profile.settings.fps,'30');
+ await db.prepare("UPDATE games SET visibility='public' WHERE id=?").run(game.id);
+ assert.deepEqual((await b(path)).data,{profile:{},revision:''});
 });

@@ -125,3 +125,12 @@ Repeat the read-only 50-client benchmark with `node scripts/load-web.mjs reports
 - Trình duyệt mới không nhận thông tin tài khoản/database; mạng game tắt, API bị chặn, trang chỉ cho request tới máy chủ thử nghiệm và CDN CheerpJ. Đây không phải sandbox hoàn chỉnh cho mã không tin cậy: triển khai worker trên máy/VM riêng có giới hạn tài nguyên và egress firewall. Chưa cấu hình hạ tầng worker trên production.
 - Chụp canvas tại 5/10/20 giây sau khi canvas xuất hiện, mỗi ảnh tối đa 1 triệu ký tự base64. Lưu báo cáo mới nhất trong games; không tích lũy ảnh qua các lần chạy. Admin có thể chọn ảnh làm icon game (thu nhỏ tối đa 256×256), chỉ khi SHA khớp.
 - `captured` chỉ có nghĩa lấy được khung hình không đồng màu và chưa thấy lỗi; không phải PASS hay Boot verified. Màn hình giả lập/menu/loading vẫn có thể xuất hiện. `review` cần admin xem lại; `error` có thể do worker/CDN/timeout. Game online bị tắt mạng nên không dùng kết quả để kết luận server chết hoặc game hỏng. Lỗi Java/JavaScript được ghi nhận có giới hạn; chưa tự phát hiện mọi lỗi resource hoặc crash im lặng.
+
+
+### Đồng bộ cấu hình người chơi
+
+- Cấu hình gắn tài khoản và ID phiên bản game; đăng nhập trên thiết bị khác rồi mở cùng phiên bản để khôi phục phím, âm lượng, thu/phóng, skin và bố cục cảm ứng trước khi khởi tạo emulator. Game JAR cài riêng từ máy vẫn dùng cấu hình cục bộ.
+- Thay đổi cấu hình trình duyệt đồng bộ sau khoảng 5–10 giây khi tab đang hiện. Màn hình/FPS và các tùy chọn Java được đồng bộ khi lưu cài đặt trong thư viện. Không gửi app/system properties, mật khẩu, chat hoặc tùy chọn mạng.
+- Lỗi mạng giữ cấu hình cục bộ; gửi cấu hình trình duyệt thử lại sau 60 giây. Nếu tải cấu hình ban đầu thất bại, mở lại game khi có mạng để đồng bộ. Cài đặt Java chưa gửi được được giữ trên máy và hỏi khi mở game lần sau. Đóng tab quá sớm có thể chưa đồng bộ thay đổi cuối.
+- Revision ngăn ghi đè đồng thời; xung đột dừng gửi và yêu cầu mở lại game. Tối đa 500 cấu hình/tài khoản, mỗi phần tối đa 16 KB, 120 lượt ghi/giờ theo bộ giới hạn hiện có. Bảng player_profiles bật RLS và không cấp quyền trực tiếp cho client Supabase.
+- Cloud Save theo từng phiên bản đã có: tối đa 5 mốc, 3 MB/mốc, quota 100 MB/tài khoản; bỏ qua dữ liệu trùng hash với mốc mới nhất. Đây là dữ liệu lưu của game, không phải snapshot RAM/save state.

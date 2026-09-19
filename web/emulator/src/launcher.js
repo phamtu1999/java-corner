@@ -1,3 +1,4 @@
+import {savePlayerJavaSettings} from './profile-sync.js';
 import {readLibraryPreview,writeLibraryPreview} from './library-preview.js';
 import {confirmAction,showMessage} from '../../ui/dialogs.js';
 import {iconButton,compactGameActions} from './library-icons.js';
@@ -617,6 +618,8 @@ async function doAddSaveGame() {
         );
     }
 
+    try{await savePlayerJavaSettings(state.currentGame.appId,state.currentGame.settings,communityUser);}
+    catch(error){await showMessage('Đã lưu trên máy. Chưa đồng bộ cấu hình: '+error.message);}
     await reloadUI();
 }
 

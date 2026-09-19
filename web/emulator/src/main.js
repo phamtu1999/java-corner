@@ -1,3 +1,4 @@
+import {applyPlayerJavaSettings} from './profile-sync.js';
 import {startPlaytime} from './playtime.js';
 import {setupAutoCloudSave} from './auto-cloud-save.js';
 import {confirmAction,showMessage} from '../../ui/dialogs.js';
@@ -355,6 +356,7 @@ async function init() {
     if (sp.get('app')) {
         const app = sp.get('app');
         await ensureAppInstalled(lib, app);
+        try{await applyPlayerJavaSettings(lib,app);}catch{console.warn("Không áp dụng được cấu hình tài khoản; giữ cấu hình trên máy.");}
         if(communitySource?.user){try{stopAutoSave=await setupAutoCloudSave({gameId:communitySource.game.id,appId:app,user:communitySource.user,saves:await lib.org.recompile.freej2me.GameSave});}catch{console.warn('Không khởi tạo được Cloud Save; tiến trình vẫn lưu trên máy.');}}
 
         document.addEventListener('click', async event => {

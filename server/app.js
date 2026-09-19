@@ -1,3 +1,4 @@
+import {installPlayerProfile} from './player-profile.js';
 import {installPreservation} from './preservation.js';
 import {installBootTests} from './boot-tests.js';
 import {installPlayerProgress} from './player-progress.js';
@@ -169,6 +170,7 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
   installPreservation(app,{db,member,admin,gameFor,fail,rate});
   installBootTests(app,{db,member,admin,gameFor,fail,rate});
   installPlayerProgress(app,{db,member,gameFor,rate,fail});
+  installPlayerProfile(app,{db,member,gameFor,rate,fail});
   installGameCloudSave(app,{db,member,gameFor,rate,fail,temp});
   installFeatures(app,{db,member,admin,gameFor,fail,field,rate,temp});
   installCommunityExtras(app,{db,member,admin,gameFor,fail,field,rate,mediaStore,temp,uploads,jarStore});
