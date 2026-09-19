@@ -3,7 +3,7 @@ export async function setupCompatibility({root,game,user,api,notify,update}) {
   const rows=[...root.querySelectorAll('#versions .game-card')];
   await Promise.all(rows.map(async(row,i)=>{
     const id=game.variants[i]?.id;if(!id)return;
-    const box=document.createElement('details');box.className='compatibility';
+    const box=document.createElement('details');box.className='compatibility';if(i===0)box.id='compatibility';
     const summary=document.createElement('summary');summary.textContent='Phản hồi tương thích';box.append(summary);
     const status=document.createElement('p');status.setAttribute('role','status');box.append(status);
     const select=document.createElement('select');select.setAttribute('aria-label','Trạng thái chơi của bạn');
