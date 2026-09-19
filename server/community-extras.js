@@ -95,6 +95,7 @@ export function installCommunityExtras(app,{db,member,admin,gameFor,fail,field,r
     if(inspection.sha256!==game.sha256)throw Error('SHA-256 không khớp bản đã đăng ký.');
     result={sha256:inspection.sha256,inspection,message:'SHA-256 khớp; cấu trúc Java ME hợp lệ.'};
    }
+   await db.prepare('UPDATE games SET inspection=?::jsonb,inspected_at=now() WHERE id=? AND sha256=?').run(JSON.stringify(result.inspection),game.id,game.sha256);
    result.inspection.duplicates=await db.prepare("SELECT id,title FROM games WHERE sha256=? AND id<>? AND (visibility='public' OR owner_id=?) AND deleted_at IS NULL LIMIT 20").all(game.sha256,game.id,req.user.id);
    res.json(result);
   }catch(error){res.status(422).json({error:error.message});}

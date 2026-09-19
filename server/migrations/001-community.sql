@@ -144,8 +144,8 @@ BEGIN
     (TG_OP='UPDATE' AND (OLD.visibility='public' OR NEW.visibility='public')) THEN
   INSERT INTO admin_audit(actor_id,action,game_id,before_data,after_data)
   VALUES(nullif(current_setting('app.actor_id',true),''),TG_OP,coalesce(NEW.id,OLD.id),
-    CASE WHEN TG_OP='INSERT' THEN NULL ELSE to_jsonb(OLD)-'icon_data' END,
-    CASE WHEN TG_OP='DELETE' THEN NULL ELSE to_jsonb(NEW)-'icon_data' END);
+    CASE WHEN TG_OP='INSERT' THEN NULL ELSE to_jsonb(OLD)-'icon_data'-'inspection'-'boot_report' END,
+    CASE WHEN TG_OP='DELETE' THEN NULL ELSE to_jsonb(NEW)-'icon_data'-'inspection'-'boot_report' END);
  END IF;
  RETURN coalesce(NEW,OLD);
 END $$;
@@ -235,3 +235,10 @@ CREATE TABLE IF NOT EXISTS game_cloud_saves (
 CREATE INDEX IF NOT EXISTS game_cloud_saves_owner ON game_cloud_saves(user_id,game_id,updated_at DESC);
 ALTER TABLE game_cloud_saves ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON game_cloud_saves FROM PUBLIC;
+ALTER TABLE games ADD COLUMN IF NOT EXISTS inspection JSONB;
+ALTER TABLE games ADD COLUMN IF NOT EXISTS inspected_at TIMESTAMPTZ;
+ALTER TABLE games ADD COLUMN IF NOT EXISTS preservation JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE games ADD COLUMN IF NOT EXISTS boot_state TEXT CHECK(boot_state IN ('queued','running','review','captured','error'));
+ALTER TABLE games ADD COLUMN IF NOT EXISTS boot_token TEXT;
+ALTER TABLE games ADD COLUMN IF NOT EXISTS boot_started TIMESTAMPTZ;
+ALTER TABLE games ADD COLUMN IF NOT EXISTS boot_report JSONB;

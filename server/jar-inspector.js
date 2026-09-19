@@ -10,6 +10,7 @@ export async function inspectJar(path, filename='') {
   for await(const chunk of createReadStream(path))hash.update(chunk);
   const report={sha256:hash.digest('hex'),manifest:{},classes:0,resources:0,classSamples:[],resourceSamples:[],resolutionHints:[],endpoints:[],permissions:[],scanLimited:false,compatibility:'Chưa chạy thử trên emulator; cấu trúc MIDlet hợp lệ không đảm bảo chơi được.'};
   const resolutions=new Set(),endpoints=new Set();
+  report.entries=[];
   const hints=text=>{
     for(const m of text.matchAll(/\b\d{2,4}[xX]\d{2,4}\b/g))if(resolutions.size<50)resolutions.add(m[0].toLowerCase());
     for(const m of text.matchAll(/(?:https?|socket|ssl):\/\/[^\s\x00-\x20<>"'()\\]{1,512}/g))if(endpoints.size<100)endpoints.add(m[0]);
@@ -24,6 +25,7 @@ export async function inspectJar(path, filename='') {
     zip.on('entry',entry=>{
       if(entry.fileName.endsWith('/'))return zip.readEntry();
       const cls=entry.fileName.endsWith('.class'),manifest=entry.fileName.toUpperCase()==='META-INF/MANIFEST.MF';
+      report.entries.push({name:entry.fileName,size:entry.uncompressedSize,crc:entry.crc32});
       report[cls?'classes':'resources']++;
       const samples=report[cls?'classSamples':'resourceSamples'];if(samples.length<100)samples.push(entry.fileName.slice(0,300));
       hints(entry.fileName);

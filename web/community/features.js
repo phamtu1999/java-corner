@@ -1,4 +1,8 @@
+import {setupPreservation} from './preservation.js';
+import {setupBootTests} from './boot-tests.js';
 export async function enhanceFeatures({root,r,user,api,esc,openModal,notify,refresh,categories}) {
+  await setupPreservation({root,r,user,api,esc,openModal,notify,refresh});
+  await setupBootTests({root,r,user,api,esc,openModal,notify});
   const control=(label,fn,cls='')=>{const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=label;b.onclick=async()=>{b.disabled=true;try{await fn(b);}catch(e){notify(e.message,'error');}finally{b.disabled=false;}};return b;};
   const panel=(title)=>{const el=document.createElement('section');el.className='panel feature-panel';el.innerHTML=`<h2>${esc(title)}</h2>`;return el;};
   const formModal=(title,fields,save)=>{

@@ -59,6 +59,19 @@ test('automatic game cloud saves retain five revisions and reject conflicts',asy
  const same=await a(path,{method:'POST',body:save(revision,Buffer.concat([jar,Buffer.from([5])]))});assert.equal(same.data.revision,revision);
  assert.equal((await a(path,{method:'POST',body:save(revision,Buffer.from('bad'))})).status,400);
 });
+test('preservation requires admin evidence and protects private reports',async t=>{
+ const {client,db}=await setup(t);const a=client(),b=client();const user=await register(a,'archive_admin');await register(b,'archive_reader');await db.prepare("UPDATE users SET role='admin' WHERE id=?").run(user.id);
+ const g=(await a('/games',{method:'POST',body:upload()})).data;
+ const path=`/games/${g.id}/preservation`;
+ const body={classification:'ORIGINAL',source:'Publisher archive',evidence:'',notes:'',archived_year:'2011',status:'verified'};
+ assert.equal((await b(path,{method:'PUT',body})).status,403);
+ assert.equal((await b(path)).status,404);
+ assert.equal((await a(path,{method:'PUT',body})).status,400);
+ body.evidence='Archived publisher download reference';assert.equal((await a(path,{method:'PUT',body})).status,200);
+ const report=(await a(path)).data;assert.equal(report.metadata.status,'verified');assert.equal(report.inspection.classes,1);assert.ok(report.score.percent>0);
+ const diff=await a(`/admin/games/${g.id}/diff/${g.id}`);assert.equal(diff.status,200);assert.deepEqual(diff.data.added,[]);
+ assert.equal((await b(`/admin/games/${g.id}/diff/${g.id}`)).status,403);
+});
 test('admin JAR inspector is bounded to authorized uploads and detects duplicates',async t=>{
   const {client,db,dataDir}=await setup(t);
   const a=client(),b=client(),guest=client();const user=await register(a,'inspector_admin');await register(b,'inspector_member');
@@ -619,4 +632,31 @@ test('progress leases, private profiles and advanced catalog filters',async t=>{
  assert.equal((await guest('/profiles/'+user.id)).data.progress,undefined);
  await db.prepare('UPDATE users SET profile_public=true WHERE id=?').run(user.id);
  const publicProfile=(await guest('/profiles/'+user.id)).data;assert.equal(publicProfile.progress.games,0);assert.equal(publicProfile.progress.seconds,0);assert.deepEqual(publicProfile.progress.completed,[]);
+});
+
+
+test('boot queue restricts access, running leases and cover SHA',async t=>{
+ const {client,db}=await setup(t);const a=client(),b=client();const user=await register(a,'boot_admin');await register(b,'boot_member');
+ await db.prepare("UPDATE users SET role='admin' WHERE id=?").run(user.id);
+ const game=(await a('/games',{method:'POST',body:upload()})).data;
+ const path=`/admin/games/${game.id}/boot-test`,cover=`/admin/games/${game.id}/boot-cover`;
+ assert.equal((await b(path)).status,403);
+ assert.equal((await b(path,{method:'POST'})).status,403);
+ assert.equal((await a(path,{method:'POST'})).status,202);
+ assert.equal((await a(path)).data.boot_state,'queued');
+ await db.prepare("UPDATE games SET boot_state='running',boot_started=now() WHERE id=?").run(game.id);
+ assert.equal((await a(path,{method:'POST'})).status,409);
+ await db.prepare("UPDATE games SET boot_started=now()-interval '6 minutes' WHERE id=?").run(game.id);
+ assert.equal((await a(path,{method:'POST'})).status,202);
+ assert.equal((await a(cover,{method:'POST',body:{index:3}})).status,400);
+ assert.equal((await a(cover,{method:'POST',body:{index:0}})).status,409);
+ const sharp=(await import('sharp')).default;
+ const png=await sharp({create:{width:2,height:2,channels:3,background:'red'}}).png().toBuffer();
+ const sha=(await db.prepare('SELECT sha256 FROM games WHERE id=?').get(game.id)).sha256;
+ await db.prepare('UPDATE games SET boot_report=?::jsonb WHERE id=?').run(JSON.stringify({sha256:sha,screenshots:[{seconds:5,png:png.toString('base64')}]}),game.id);
+ assert.equal((await b(cover,{method:'POST',body:{index:0}})).status,403);
+ assert.equal((await a(cover,{method:'POST',body:{index:0}})).status,200);
+ assert.match((await db.prepare('SELECT icon_data FROM games WHERE id=?').get(game.id)).icon_data,/^data:image\/png;base64,/);
+ await db.prepare("UPDATE games SET sha256='changed' WHERE id=?").run(game.id);
+ assert.equal((await a(cover,{method:'POST',body:{index:0}})).status,409);
 });

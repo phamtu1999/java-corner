@@ -5,12 +5,14 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env server/index.js",
     "test": "node --env-file-if-exists=.env --test tests/*.test.js",
+    "boot-worker": "node --env-file-if-exists=.env scripts/boot-worker.mjs",
     "admin": "node --env-file-if-exists=.env server/admin.js",
     "supabase:check": "node --env-file-if-exists=.env scripts/check-supabase.js",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate-database.js",
     "vercel-build": "node scripts/build-vercel.mjs"
   },
   "devDependencies": {
+    "puppeteer-core": "^25.11.0",
     "serve": "14.2.6"
   },
   "dependencies": {

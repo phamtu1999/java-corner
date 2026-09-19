@@ -1,3 +1,5 @@
+import {installPreservation} from './preservation.js';
+import {installBootTests} from './boot-tests.js';
 import {installPlayerProgress} from './player-progress.js';
 import {installGameCloudSave} from './game-cloud-save.js';
 import {inspectJar} from './jar-inspector.js';
@@ -164,6 +166,8 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
     if (!game) fail(404, 'Không tìm thấy game hoặc bạn không có quyền truy cập.');
     return game;
   }
+  installPreservation(app,{db,member,admin,gameFor,fail,rate});
+  installBootTests(app,{db,member,admin,gameFor,fail,rate});
   installPlayerProgress(app,{db,member,gameFor,rate,fail});
   installGameCloudSave(app,{db,member,gameFor,rate,fail,temp});
   installFeatures(app,{db,member,admin,gameFor,fail,field,rate,temp});
@@ -285,6 +289,7 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
       const bytesUsed = (await db.prepare('SELECT COALESCE(SUM(size),0) AS n FROM games WHERE owner_id=?').get(req.user.id)).n;
       if (req.user.role !== 'admin' && Number(bytesUsed) + req.file.size > 200 * 1024 * 1024) fail(413, 'Kho game cá nhân tối đa 200 MB. Hãy xóa game không dùng.');
       try { await validateJar(req.file.path); } catch (error) { fail(400, error.message); }
+      const inspection=req.user.role==='admin'?await inspectJar(req.file.path,req.file.originalname):null;
       const icon = await extractJarIcon(req.file.path), publisher=await extractJarPublisher(req.file.path);
       const id = randomUUID(), sha = digest(readFileSync(req.file.path));
       const duplicate=await db.prepare("SELECT id,title,deleted_at FROM games WHERE sha256=? AND (visibility='public' OR owner_id=?) ORDER BY created_at LIMIT 1").get(sha,req.user.id);
@@ -300,6 +305,7 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
         const used = (await client.query('SELECT COALESCE(SUM(size),0) AS n FROM games WHERE owner_id=$1', [req.user.id])).rows[0].n;
         if (req.user.role !== 'admin' && Number(used) + req.file.size > 200 * 1024 * 1024) fail(413, 'Kho game cá nhân tối đa 200 MB.');
         await client.query('INSERT INTO games(id,owner_id,visibility,category_id,title,description,filename,size,sha256,icon_data,publisher,storage_object) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)', [id, req.user.id, visibility, category, title, description, 'game.jar', req.file.size, sha, icon,publisher,remote?.object || null]);
+        if(inspection)await client.query("UPDATE games SET inspection=$1::jsonb,inspected_at=now(),boot_state='queued' WHERE id=$2",[JSON.stringify(inspection),id]);
       });
       committed = true; destination = null; res.status(201).json(await gameFor(req, id));
     } finally {

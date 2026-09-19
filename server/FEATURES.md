@@ -108,3 +108,20 @@ Repeat the read-only 50-client benchmark with `node scripts/load-web.mjs reports
 - Chạy migration trước triển khai. Tài khoản chơi game thuộc kho được tự sao lưu RMS riêng từng phiên bản game, giữ 5 mốc; bản lưu toàn thư viện cũ không bị thay đổi. Không áp dụng JAR cục bộ chưa gắn với game trong kho hoặc dữ liệu trên máy chủ game online.
 - Kiểm tra ZIP RMS mỗi 10 giây khi tab hiển thị; chỉ gửi khi hai lần liên tiếp có cùng nội dung mới, tối đa một lần/phút. Giới hạn 3 MB/mốc, 100 MB/tài khoản. Dữ liệu chưa được game ghi xuống RMS không thể sao lưu. Đóng tab trước khi gửi có thể mất mốc cloud cuối, RMS trên máy vẫn còn.
 - Revision chống ghi đè từ thiết bị/tab khác. Bấm trạng thái cloud để xem 5 mốc, chọn khôi phục hoặc xác nhận tiếp tục từ máy này. Khôi phục tải lại trang rồi thay RMS trước khi chạy MIDlet; cơ chế GameSave giữ bản dự phòng tại máy. Lỗi mạng giữ dữ liệu máy và thử lại; xung đột dừng tự lưu. Không tự ghi đè dữ liệu máy bằng bản cloud khi mở game.
+
+### Hồ sơ bảo tồn (đợt 1)
+
+- Migration thêm inspection/inspected_at/preservation vào games. Admin upload tự lưu báo cáo; game cũ dùng nút cập nhật Inspector. Chỉ dùng báo cáo khớp SHA256 hiện tại. Báo cáo đầy đủ chỉ dành admin.
+- Trang chi tiết có nhãn phiên bản, nguồn, bằng chứng, năm lưu trữ, uploader và liên kết phiên bản gốc công khai. Verified do admin xác nhận, bắt buộc có nguồn/bằng chứng, không chứng nhận an toàn. Lịch sử thay đổi game công khai lưu trong Lịch sử quản trị; không nhân bản báo cáo Inspector lớn vào audit.
+- Preservation Score là tỷ lệ 9 trường hiện có: SHA256, manifest kiểm tra, icon, version, publisher, năm phát hành, nguồn, bằng chứng, phân loại. Không chấm chất lượng game, không suy đoán Original, chưa tính screenshot hoặc boot verification.
+- Admin nhập ID bản đích để so sánh inventory đầy đủ (không chỉ 100 tên mẫu), CRC/kích thước, dung lượng JAR và endpoint. CRC không phải chứng minh hai nội dung giống nhau; endpoint bị giới hạn theo quét tĩnh. Chạy lại Inspector nếu báo cáo cũ chưa có inventory. Boot Test và chụp ảnh tự động thuộc đợt sau.
+
+
+### Boot Test và ảnh tự động (đợt 2)
+
+- Chạy migration trước triển khai. Admin upload tạo tác vụ `queued`; game cũ có nút đưa vào hàng đợi tại trang chi tiết. Admin → Boot Test liệt kê tối đa 100 game công khai, ưu tiên lỗi/cần xem lại.
+- Worker chạy riêng ngoài Vercel: cài Node 24, Chrome và `npm ci` (bao gồm devDependencies), cấu hình DATABASE_URL cùng Storage như server, đặt CHROME_PATH nếu cần, rồi chạy `npm run boot-worker`. Mỗi lần xử lý một game; có thể gọi định kỳ bằng scheduler. Chạy từ thư mục repository. Không chạy Chrome bằng root hoặc tắt sandbox.
+- Worker tải JAR tối đa 50 MB, đối chiếu SHA256 và Inspector trước khi chạy. Khóa hàng đợi chống nhận trùng; lease quá 5 phút được lấy lại; token/SHA ngăn worker cũ ghi đè kết quả mới. Không tự publish hay xóa game.
+- Trình duyệt mới không nhận thông tin tài khoản/database; mạng game tắt, API bị chặn, trang chỉ cho request tới máy chủ thử nghiệm và CDN CheerpJ. Đây không phải sandbox hoàn chỉnh cho mã không tin cậy: triển khai worker trên máy/VM riêng có giới hạn tài nguyên và egress firewall. Chưa cấu hình hạ tầng worker trên production.
+- Chụp canvas tại 5/10/20 giây sau khi canvas xuất hiện, mỗi ảnh tối đa 1 triệu ký tự base64. Lưu báo cáo mới nhất trong games; không tích lũy ảnh qua các lần chạy. Admin có thể chọn ảnh làm icon game (thu nhỏ tối đa 256×256), chỉ khi SHA khớp.
+- `captured` chỉ có nghĩa lấy được khung hình không đồng màu và chưa thấy lỗi; không phải PASS hay Boot verified. Màn hình giả lập/menu/loading vẫn có thể xuất hiện. `review` cần admin xem lại; `error` có thể do worker/CDN/timeout. Game online bị tắt mạng nên không dùng kết quả để kết luận server chết hoặc game hỏng. Lỗi Java/JavaScript được ghi nhận có giới hạn; chưa tự phát hiện mọi lỗi resource hoặc crash im lặng.

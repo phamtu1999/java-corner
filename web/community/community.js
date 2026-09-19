@@ -3,7 +3,7 @@ import {setupJarInspector} from './jar-inspector.js?v=20260919-stock';
 import {checkUpload} from '/ui/deployment.js';
 import {setupDraft, clearDraft, setupTopicSearch} from './writing.js';
 import { decorateAccount } from '../ui/site.js?v=20260918-1';
-import {enhanceFeatures} from './features.js?v=20260919-progress';
+import {enhanceFeatures} from './features.js?v=20260919-boot-tests';
 import {enhanceExtras} from './extras.js?v=20260919-inspector-stock';
 import {setupHeaderTools,openAccount} from '../ui/header-tools.js?v=20260917-6';
 import {enhanceSafety} from './safety-features.js';
