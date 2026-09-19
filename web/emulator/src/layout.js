@@ -1,4 +1,11 @@
-export const layouts = ['screen', 'split', 'bottom', 'nokia'];
+export const phoneSkins = {
+    'nokia-6300': 'NOKIA · 6300',
+    'nokia-n73': 'NOKIA · N73',
+    'nokia-2700': 'NOKIA · 2700',
+    'sony-k800i': 'Sony Ericsson · K800i',
+    'samsung-corby': 'SAMSUNG · Corby',
+};
+export const layouts = ['screen', 'split', 'bottom', 'nokia', ...Object.keys(phoneSkins)];
 
 export function resolveLayout(saved, mobile) {
     return layouts.includes(saved) ? saved : mobile ? 'bottom' : 'screen';
@@ -16,7 +23,9 @@ export function initLayout(onChange) {
     try { saved = localStorage.getItem(key)||localStorage.getItem('java-emulator.layout'); } catch {}
     select.value = resolveLayout(saved, new URLSearchParams(location.search).get('mobile') === '1');
     const apply = () => {
-        document.body.dataset.layout = select.value;
+        document.body.dataset.layout = phoneSkins[select.value] ? 'nokia' : select.value;
+        document.body.dataset.skin = phoneSkins[select.value] ? select.value : '';
+        document.getElementById('phone-brand-name').textContent = phoneSkins[select.value] || 'NOKIA';
         onChange();
     };
     select.addEventListener('change', () => {

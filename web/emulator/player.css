@@ -99,3 +99,24 @@ body[data-layout="nokia"] #game-shell{margin:10px auto;padding-top:12px;padding-
 .player-toolbar .player-network button[data-connection^="Đã"]{background:#e9f8ef;color:#167440;border-color:#85cba3}
 
 .game-text-entry{box-sizing:border-box;width:100%;max-width:var(--site-width);margin:0 auto;padding:12px;background:#fff;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.game-text-entry[hidden]{display:none}.game-text-entry>label:first-child{flex:1;min-width:180px;display:grid;gap:6px}.game-text-entry input:not([type=checkbox]){width:100%;box-sizing:border-box;min-height:40px;font:inherit}.game-text-entry button{min-height:40px}.game-text-entry p{flex-basis:100%;margin:0;font-size:12px}.game-support{box-sizing:border-box;width:min(520px,90vw);max-height:85vh;overflow:auto;border:1px solid #bdd6e4;border-radius:6px;padding:20px}.game-support label{display:grid;gap:6px;margin:12px 0}.game-support textarea{box-sizing:border-box;max-width:100%;width:100%;font:inherit}.game-support button{min-height:40px;margin:4px}.game-support::backdrop{background:#152d4266}
+
+/* Handset-inspired finishes; reuse the same canvas and accessible keypad. */
+body[data-skin] #phone-brand-name{font-size:12px;letter-spacing:1px}
+body[data-skin="nokia-6300"] #game-shell{background:linear-gradient(100deg,#a9afb3,#edf0f1 45%,#959da3);border-color:#b9c0c5;border-radius:24px 24px 32px 32px}
+body[data-skin="nokia-6300"] .phone-brand{color:#202831}
+body[data-skin="nokia-6300"] .key{border-radius:3px;background:linear-gradient(#edf0f1,#aeb6bd)}
+body[data-skin="nokia-n73"] #game-shell{background:linear-gradient(90deg,#432b47,#79576d,#34283c);border-color:#96969f;border-radius:28px}
+body[data-skin="nokia-n73"] .key{background:#ded9dd;border-radius:4px 4px 10px 10px;border-bottom-color:#6e5067}
+body[data-skin="nokia-n73"] .ok-key{background:#76536b;color:white}
+body[data-skin="nokia-2700"] #game-shell{background:linear-gradient(90deg,#172333,#30485d,#172333);border-color:#4b83a1;border-radius:40px}
+body[data-skin="nokia-2700"] .key{background:#253849;color:#f1f7fa;border-color:#688294;border-radius:6px;box-shadow:none}
+body[data-skin="nokia-2700"] .key span{color:#c5d7e4}
+body[data-skin="sony-k800i"] #game-shell{background:linear-gradient(90deg,#181b1d,#3a3f42,#16191b);border-color:#676c6f;border-radius:20px}
+body[data-skin="sony-k800i"] .key{background:#272c2f;color:#f2f4f5;border-color:#62696d;border-radius:4px;box-shadow:none}
+body[data-skin="sony-k800i"] .key span{color:#c9d1d5}
+body[data-skin="sony-k800i"] .ok-key{background:#466636;border-color:#a1b58e;border-radius:50%}
+body[data-skin="samsung-corby"] #game-shell{background:#f2c92c;border-color:#302e28;border-radius:55px 55px 65px 65px}
+body[data-skin="samsung-corby"] .phone-brand{color:#282722}
+body[data-skin="samsung-corby"] .key{background:#292b2d;color:white;border-color:#53575b;border-radius:16px;box-shadow:none}
+body[data-skin="samsung-corby"] .key span{color:#d6dadd}
+body[data-layout="nokia"][data-skin] .key.active{background:#89ab79;color:#14220d;border-color:#c2dfb5}

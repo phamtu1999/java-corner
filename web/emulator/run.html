@@ -6,7 +6,7 @@
     <title>Chơi game · Java Corner</title>
     <link rel="icon" href="/ui/favicon.svg">
     <link rel="stylesheet" href="/ui/site.css?v=20260917-5">
-    <link rel="stylesheet" href="/emulator/player.css?v=20260917-5">
+    <link rel="stylesheet" href="/emulator/player.css?v=20260919-skins">
 </head>
 
 <body data-page="player" data-layout="screen">
@@ -19,10 +19,16 @@
             <option value="split">Phím hai bên</option>
             <option value="bottom">Phím bên dưới</option>
             <option value="nokia">Nokia cổ điển</option>
+            <option value="nokia-6300">Nokia 6300</option>
+            <option value="nokia-n73">Nokia N73</option>
+            <option value="nokia-2700">Nokia 2700</option>
+            <option value="sony-k800i">Sony Ericsson K800i</option>
+            <option value="samsung-corby">Samsung Corby</option>
+
         </select>
     </header>
     <main id="game-shell">
-    <div class="phone-brand" aria-hidden="true"><span class="speaker"></span>NOKIA</div>
+    <div class="phone-brand" aria-hidden="true"><span class="speaker"></span><span id="phone-brand-name">NOKIA</span></div>
     <div id="screen-area">
         <canvas tabindex="0" id="display" aria-label="Màn hình game Java ME" style="display: none;"></canvas>
         <div id="loading" role="status">Đang tải game…</div>
