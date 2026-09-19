@@ -190,3 +190,10 @@ summary h3 { display: inline; font-size: inherit; }
   #game-list .game-row-actions{gap:4px}
   #game-list .library-icon-button{width:40px!important;min-width:40px!important}
 }
+
+@media(max-width:600px){
+ body[data-page='local'] main{overflow:visible;min-width:0}
+ .list-heading{flex-wrap:wrap;gap:8px}
+ .list-heading select{max-width:100%;min-width:0}
+ .game-info{overflow-wrap:anywhere}
+}

@@ -113,3 +113,16 @@
 .forum-filter-fields label:has(input[type=checkbox]){min-height:40px;gap:6px}
 .forum-filter-options>summary:focus-visible,.forum-reset:focus-visible{outline:2px solid var(--deep);outline-offset:2px}
 @media(max-width:600px){.filters.forum-filters{grid-template-columns:minmax(0,1fr) auto auto}.forum-filters>input[type=search]{grid-column:1/-1}.forum-filter-options{grid-column:2;grid-row:2}.forum-filter-options[open]{grid-column:1/-1;grid-row:3}.forum-filter-fields{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.forum-filter-fields label:last-child{grid-column:1/-1}}
+
+@media(max-width:600px){
+ .shell{width:100%;min-width:0}
+ .panel,.detail-grid,.game-main,.topic-main,.profile-progress{min-width:0;overflow-wrap:anywhere}
+ .filters:not(.forum-filters){display:flex;flex-wrap:wrap;gap:8px;padding:8px;margin:0}
+ .filters:not(.forum-filters)>input[type=search]{flex:1 0 100%;width:100%;min-width:0;min-height:40px}
+ .filters:not(.forum-filters)>select{flex:1 1 140px;width:auto;min-width:0;min-height:40px}
+ .actions,.post-head,.comment-submit{flex-wrap:wrap}
+ .panel pre,.health-result pre{max-width:100%;overflow:auto}
+ .advanced-catalog>div{grid-template-columns:minmax(0,1fr)}
+ .game-detail-tabs{flex-wrap:nowrap;overflow-x:auto}
+ .game-detail-tabs a{flex:0 0 auto;padding:12px;white-space:nowrap}
+}

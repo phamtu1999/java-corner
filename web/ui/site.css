@@ -58,3 +58,20 @@ html:has(body:is([data-page="community"],[data-page="local"])){scrollbar-gutter:
 .app-message-actions button{min-height:40px;padding:8px 18px;border:1px solid #c3d5e2;border-radius:6px;background:#fff;color:#25475e;cursor:pointer}
 .app-message-actions button.primary{background:#008fc6;color:#fff;border-color:#008fc6}
 .app-message-actions button:focus-visible{outline:2px solid #007aaa;outline-offset:3px}
+
+/* Mobile pages use their natural height; navigation scrolls rather than squeezing labels. */
+@media(max-width:600px){
+ html:has(body[data-page]){scrollbar-gutter:auto}
+ body[data-page]{width:100%;min-width:0}
+ .site-header,.site-footer{width:100%;min-width:0}
+ .site-header{min-height:0}
+ .site-top{padding:0 8px}
+ #account{width:100%;min-width:0;gap:4px;padding:2px 0 6px}
+ #account .account-account{max-width:110px}
+ .site-nav{flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain}
+ .site-nav a{flex:0 0 auto;min-height:44px;padding:10px 12px;font-size:13px}
+ .site-nav-wrap{min-width:0}
+ body[data-page] input:not([type=checkbox]):not([type=radio]),body[data-page] select,body[data-page] textarea{font-size:16px}
+ body[data-page] button,body[data-page] .button{min-height:40px}
+ dialog{max-width:calc(100vw - 24px);overflow-wrap:anywhere}
+}
