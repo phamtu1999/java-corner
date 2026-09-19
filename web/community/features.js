@@ -1,4 +1,4 @@
-import {setupPreservation} from './preservation.js';
+import {setupPreservation} from './preservation.js?v=20260919-completeness';
 import {setupBootTests} from './boot-tests.js';
 export async function enhanceFeatures({root,r,user,api,esc,openModal,notify,refresh,categories}) {
   await setupPreservation({root,r,user,api,esc,openModal,notify,refresh});

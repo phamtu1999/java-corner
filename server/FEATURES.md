@@ -134,3 +134,10 @@ Repeat the read-only 50-client benchmark with `node scripts/load-web.mjs reports
 - Lỗi mạng giữ cấu hình cục bộ; gửi cấu hình trình duyệt thử lại sau 60 giây. Nếu tải cấu hình ban đầu thất bại, mở lại game khi có mạng để đồng bộ. Cài đặt Java chưa gửi được được giữ trên máy và hỏi khi mở game lần sau. Đóng tab quá sớm có thể chưa đồng bộ thay đổi cuối.
 - Revision ngăn ghi đè đồng thời; xung đột dừng gửi và yêu cầu mở lại game. Tối đa 500 cấu hình/tài khoản, mỗi phần tối đa 16 KB, 120 lượt ghi/giờ theo bộ giới hạn hiện có. Bảng player_profiles bật RLS và không cấp quyền trực tiếp cho client Supabase.
 - Cloud Save theo từng phiên bản đã có: tối đa 5 mốc, 3 MB/mốc, quota 100 MB/tài khoản; bỏ qua dữ liệu trùng hash với mốc mới nhất. Đây là dữ liệu lưu của game, không phải snapshot RAM/save state.
+
+
+### Dashboard bảo tồn và API công khai
+
+- Admin → Độ đầy đủ kho game: đếm phiên bản công khai chưa xóa (gồm bản ẩn), lọc danh sách thiếu từng tiêu chí, 20 phiên bản/trang. Inspector/ảnh/Boot Test chỉ tính khi SHA256 khớp JAR hiện tại. Ảnh ở đây là ảnh Boot Test; chưa tổng hợp ảnh từ bài viết. Boot Test đếm cả kết quả lỗi, không có nghĩa tương thích tốt. Liên kết cha không bắt buộc với bản gốc. Network reviewed chưa có dữ liệu xác nhận nên không tính phần trăm.
+- API chỉ đọc: `GET /api/public/games/:id`, `GET /api/public/games/:id/versions?page=1`, `GET /api/public/publishers/:id?page=1`. Publisher ID là tên hãng chính xác được URL-encode; mỗi trang tối đa 50 phiên bản.
+- API công khai luôn loại game riêng/ẩn/đã xóa, kể cả khi admin gọi. Chỉ trả ID, tên, hãng, developer, màn hình, năm, ngôn ngữ, chế độ mạng/cảm ứng, kích thước và SHA256. Không trả Storage URL/object, owner, báo cáo Inspector hoặc dữ liệu tài khoản. Giới hạn 120 yêu cầu/phút qua bộ rate limiter hiện có.

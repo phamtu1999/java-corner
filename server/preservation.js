@@ -9,6 +9,39 @@ export function jarDiff(a,b) {
  return {added:[...right.keys()].filter(k=>!left.has(k)),removed:[...left.keys()].filter(k=>!right.has(k)),changed:[...right.keys()].filter(k=>left.has(k)&&(left.get(k).crc!==right.get(k).crc||left.get(k).size!==right.get(k).size)),endpointsAdded:b.endpoints.filter(x=>!a.endpoints.includes(x)),endpointsRemoved:a.endpoints.filter(x=>!b.endpoints.includes(x)),partial:!!(a.scanLimited||b.scanLimited)};
 }
 export function installPreservation(app,{db,member,admin,gameFor,fail,rate}) {
+ const visible="visibility='public' AND hidden=false AND deleted_at IS NULL";
+ const columns="id,title,publisher,developer,screen,release_year,language,network_mode,touch_supported,size,sha256";
+ const publicGame=async id=>{const game=await db.prepare(`SELECT ${columns},coalesce(family_key,id) AS family FROM games WHERE id=? AND ${visible}`).get(id);if(!game)fail(404,'Không tìm thấy game công khai.');return game;};
+ const pageOf=req=>{const value=String(req.query.page||'1');if(!/^[1-9]\d{0,4}$/.test(value))fail(400,'Trang không hợp lệ.');return Number(value);};
+ app.get('/api/public/games/:id',rate('public-metadata',120,60000),async(req,res)=>{const {family,...game}=await publicGame(req.params.id);res.json(game);});
+ app.get('/api/public/games/:id/versions',rate('public-metadata',120,60000),async(req,res)=>{
+  const game=await publicGame(req.params.id),page=pageOf(req);
+  const items=await db.prepare(`SELECT ${columns} FROM games WHERE coalesce(family_key,id)=? AND ${visible} ORDER BY id LIMIT 51 OFFSET ?`).all(game.family,(page-1)*50);
+  res.json({page,items:items.slice(0,50),has_more:items.length>50});
+ });
+ // Publisher IDs use the exact publisher name, URL-encoded by the caller.
+ app.get('/api/public/publishers/:id',rate('public-metadata',120,60000),async(req,res)=>{
+  const name=req.params.id;if(name.length>100)fail(400,'Tên nhà phát hành quá dài.');const page=pageOf(req);
+  const total=Number((await db.prepare(`SELECT count(*) AS n FROM games WHERE publisher=? AND ${visible}`).get(name)).n);
+  if(!total)fail(404,'Không tìm thấy nhà phát hành.');
+  const items=await db.prepare(`SELECT ${columns} FROM games WHERE publisher=? AND ${visible} ORDER BY id LIMIT 50 OFFSET ?`).all(name,(page-1)*50);
+  res.json({publisher:name,total,page,items,has_more:page*50<total});
+ });
+ const checks={
+  jar:"coalesce(inspection->>'sha256'=sha256,false)",
+  screenshot:"coalesce(boot_report->>'sha256'=sha256 AND jsonb_array_length(coalesce(boot_report->'screenshots','[]'::jsonb))>0,false)",
+  publisher:"length(trim(publisher))>0",year:"release_year IS NOT NULL",
+  lineage:"EXISTS(SELECT 1 FROM games parent WHERE parent.id=games.preservation->>'parent_id' AND parent.deleted_at IS NULL)",
+  boot:"coalesce(boot_report->>'sha256'=sha256 AND boot_state IN ('captured','review','error'),false)"
+ };
+ app.get('/api/admin/preservation-completeness',member,admin,async(req,res)=>{
+  const missing=String(req.query.missing||'jar'),page=pageOf(req);if(!Object.hasOwn(checks,missing))fail(400,'Tiêu chí không hợp lệ.');
+  const scope="visibility='public' AND deleted_at IS NULL";
+  const counts=await db.prepare(`SELECT count(*) AS total,${Object.entries(checks).map(([k,v])=>`count(*) FILTER(WHERE ${v}) AS ${k}`).join(',')} FROM games WHERE ${scope}`).get();
+  const total=Number(counts.total),metrics=Object.fromEntries(Object.keys(checks).map(k=>[k,{count:Number(counts[k]),percent:total?Math.round(Number(counts[k])/total*100):0}]));
+  const items=await db.prepare(`SELECT id,title,screen,hidden FROM games WHERE ${scope} AND NOT (${checks[missing]}) ORDER BY title,id LIMIT 20 OFFSET ?`).all((page-1)*20);
+  res.json({total,metrics,missing,page,items,has_more:page*20<total-metrics[missing].count,network_reviewed:null});
+ });
  const row=id=>db.prepare('SELECT inspection,inspected_at,preservation FROM games WHERE id=?').get(id);
  app.get('/api/games/:id/preservation',async(req,res)=>{
   const game=await gameFor(req,req.params.id),data=await row(game.id);

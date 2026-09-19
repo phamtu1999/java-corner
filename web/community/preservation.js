@@ -1,5 +1,21 @@
 import {renderJarInspection} from './jar-inspector.js?v=20260919-stock';
 export async function setupPreservation({root,r,user,api,esc,openModal,notify,refresh}) {
+ if(r.view==='admin'&&user?.role==='admin'){
+  const button=document.createElement('button');button.type='button';button.textContent='Độ đầy đủ kho game';root.querySelector('.admin-tabs').after(button);
+  button.onclick=async()=>{
+   button.disabled=true;
+   const labels={jar:'JAR đã kiểm tra',screenshot:'Ảnh từ Boot Test',publisher:'Nhà phát hành',year:'Năm phát hành',lineage:'Liên kết phiên bản gốc',boot:'Đã chạy Boot Test'};
+   const load=async(missing='jar',page=1)=>{
+    const d=await api(`/admin/preservation-completeness?missing=${missing}&page=${page}`);
+    openModal(`<h2 id="modal-title">Độ đầy đủ · ${d.total} phiên bản</h2><p>Game công khai chưa xóa, gồm cả game đang ẩn. Boot Test có kết quả không đồng nghĩa chạy tốt. Phiên bản gốc có thể không cần liên kết cha.</p><ul>${Object.entries(d.metrics).map(([k,v])=>`<li>${labels[k]}: ${v.percent}% (${v.count}/${d.total})</li>`).join('')}</ul><p>Network reviewed: chưa có dữ liệu xác nhận.</p><label>Cần hoàn thiện<select id="completeness-filter">${Object.entries(labels).map(([k,v])=>`<option value="${k}" ${k===missing?'selected':''}>${v}</option>`).join('')}</select></label><ul>${d.items.map(g=>`<li><a href="/game/${esc(g.id)}">${esc(g.title)}</a> · ${esc(g.screen||'Chưa rõ màn hình')}${g.hidden?' · Đang ẩn':''}</li>`).join('')||'<li>Không có phiên bản trong trang này.</li>'}</ul><p>Trang ${page}</p><button id="completeness-prev" ${page===1?'disabled':''}>Trước</button><button id="completeness-next" ${!d.has_more?'disabled':''}>Sau</button>`);
+    const change=async(m,p)=>{try{await load(m,p);}catch(e){notify(e.message,'error');}};
+    document.getElementById('completeness-filter').onchange=e=>change(e.target.value,1);
+    document.getElementById('completeness-prev').onclick=()=>change(missing,page-1);
+    document.getElementById('completeness-next').onclick=()=>change(missing,page+1);
+   };
+   try{await load();}catch(e){notify(e.message,'error');}finally{button.disabled=false;}
+  };
+ }
  if(r.view!=='game')return;
  const data=await api(`/games/${r.id}/preservation`),m=data.metadata;
  const section=document.createElement('section');section.className='panel';section.style.overflowWrap='anywhere';

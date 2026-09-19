@@ -677,3 +677,27 @@ test('player profiles isolate accounts, validate settings and reject stale revis
  await db.prepare("UPDATE games SET visibility='public' WHERE id=?").run(game.id);
  assert.deepEqual((await b(path)).data,{profile:{},revision:''});
 });
+
+ test('public preservation API omits private data and completeness is admin only',async t=>{
+ const {client,db}=await setup(t),a=client(),guest=client();const user=await register(a,'metadata_admin');
+ await db.prepare("UPDATE users SET role='admin' WHERE id=?").run(user.id);
+ const g=(await a('/games',{method:'POST',body:upload()})).data;
+ assert.equal((await guest(`/public/games/${g.id}`)).status,404);
+ assert.equal((await a(`/public/games/${g.id}`)).status,404);
+ assert.equal((await guest('/admin/preservation-completeness')).status,401);
+ await db.prepare("UPDATE games SET visibility='public',publisher='TeaMobi',family_key='test-family' WHERE id=?").run(g.id);
+ const result=await guest(`/public/games/${g.id}`);assert.equal(result.status,200);
+ assert.deepEqual(Object.keys(result.data).sort(),['id','title','publisher','developer','screen','release_year','language','network_mode','touch_supported','size','sha256'].sort());
+ assert.equal((await guest(`/public/games/${g.id}/versions`)).data.items.length,1);
+ assert.equal((await guest('/public/publishers/TeaMobi')).data.total,1);
+ assert.equal((await guest('/public/publishers/TeaMobi?page=-1')).status,400);
+ const report=await a('/admin/preservation-completeness');assert.equal(report.status,200,JSON.stringify(report.data));assert.equal(report.data.total,1);assert.equal(report.data.metrics.jar.count,1);assert.equal(report.data.metrics.year.count,0);
+ assert.equal((await a('/admin/preservation-completeness?missing=year')).data.items[0].id,g.id);
+ assert.equal((await a('/admin/preservation-completeness?missing=bad')).status,400);
+ await db.prepare("UPDATE games SET hidden=true WHERE id=?").run(g.id);
+ assert.equal((await a(`/public/games/${g.id}`)).status,404);
+ assert.equal((await guest('/public/publishers/TeaMobi')).status,404);
+ await db.prepare("UPDATE games SET hidden=false,deleted_at=now() WHERE id=?").run(g.id);
+ assert.equal((await guest(`/public/games/${g.id}/versions`)).status,404);
+ assert.equal((await a('/admin/preservation-completeness')).data.total,0);
+ });
