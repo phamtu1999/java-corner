@@ -257,8 +257,6 @@ function fillGamesList(games, preview=false) {
 
         const link = document.createElement("a");
         link.className = "game-entry";
-        link.target = "_blank";
-        link.rel = "noopener";
         link.href = "/play?app=" + encodeURIComponent(game.appId) + "&fractionScale=1";
 
 
@@ -283,8 +281,6 @@ function fillGamesList(games, preview=false) {
         const touchLink = document.createElement("a");
         touchLink.href = link.href + "&mobile=1";
         touchLink.className = "game-action touch-action";
-        touchLink.target = "_blank";
-        touchLink.rel = "noopener";
         touchLink.innerHTML = '<svg class="launcher-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 4 12 8-12 8Z"/></svg><span>Chơi game</span>';
         touchLink.setAttribute("aria-label", "Chơi game: " + game.name);
         item.appendChild(touchLink);
