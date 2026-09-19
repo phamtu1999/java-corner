@@ -1,3 +1,4 @@
+import {playerProgress} from './player-progress.js';
 import {uploadGuard} from './upload-guard.js';
 import {randomUUID} from 'node:crypto';
 import {rmSync,existsSync} from 'node:fs';
@@ -5,9 +6,10 @@ import {resolve} from 'node:path';
 import multer from 'multer';
 import {verifyArchive} from './verify-archive.js';
 import {validateJar} from './jar.js';
+import {inspectJar} from './jar-inspector.js';
 import {inspectMedia} from './media.js';
 
-export function installCommunityExtras(app,{db,member,admin,gameFor,fail,field,rate,mediaStore,temp,uploads}){
+export function installCommunityExtras(app,{db,member,admin,gameFor,fail,field,rate,mediaStore,temp,uploads,jarStore}){
  const limited=rate('extras',40,60000);
  const collectionFor=async(req,id,edit=false)=>{
   const c=await db.prepare('SELECT * FROM collections WHERE id=?').get(id);
@@ -38,7 +40,7 @@ export function installCommunityExtras(app,{db,member,admin,gameFor,fail,field,r
   if(!u.profile_public&&u.id!==req.user?.id)return res.json({id:u.id,name:u.name,private:true});
   const posts=await db.prepare('SELECT id,title FROM posts WHERE user_id=? AND deleted_at IS NULL AND (game_id IS NULL OR EXISTS(SELECT 1 FROM games g WHERE g.id=posts.game_id AND g.deleted_at IS NULL)) ORDER BY created_at DESC LIMIT 50').all(u.id);
   const collections=await db.prepare('SELECT id,title FROM collections WHERE user_id=? AND public=true ORDER BY created_at DESC').all(u.id);
-  res.json({...u,posts,collections});
+  res.json({...u,posts,collections,progress:await playerProgress(db,u.id,u.id===req.user?.id)});
  });
  const avatarUpload=multer({dest:temp,limits:{fileSize:8*1048576,files:1,fields:4}}).single('avatar');
  app.patch('/api/profile',member,limited,uploadGuard(),avatarUpload,async(req,res)=>{
@@ -83,14 +85,23 @@ export function installCommunityExtras(app,{db,member,admin,gameFor,fail,field,r
  app.post('/api/admin/games/:id/verify-archive',member,admin,rate('verify-archive',5,60000),async(req,res)=>{
   const game=await gameFor(req,req.params.id);
   const row=await db.prepare('SELECT storage_object FROM games WHERE id=?').get(game.id);
-  if(!row.storage_object)fail(400,'Tệp cục bộ được kiểm tra trong Kiểm tra kho game.');
-  const object=row.storage_object.split('/').map(encodeURIComponent).join('/');
-  const url=new URL('/storage/v1/object/public/'+encodeURIComponent(process.env.SUPABASE_STORAGE_BUCKET||'game')+'/'+object,process.env.SUPABASE_URL);
-  try{res.json(await verifyArchive(url,game.sha256));}catch(error){res.status(422).json({error:error.message});}
+  try{
+   let result;
+   if(row.storage_object){
+    const url=await jarStore.url(row.storage_object,game.visibility);
+    result=await verifyArchive(url,game.sha256,fetch,game.filename);
+   }else{
+    const inspection=await inspectJar(resolve(uploads,game.id+'.jar'),game.filename);
+    if(inspection.sha256!==game.sha256)throw Error('SHA-256 không khớp bản đã đăng ký.');
+    result={sha256:inspection.sha256,inspection,message:'SHA-256 khớp; cấu trúc Java ME hợp lệ.'};
+   }
+   result.inspection.duplicates=await db.prepare("SELECT id,title FROM games WHERE sha256=? AND id<>? AND (visibility='public' OR owner_id=?) AND deleted_at IS NULL LIMIT 20").all(game.sha256,game.id,req.user.id);
+   res.json(result);
+  }catch(error){res.status(422).json({error:error.message});}
  });
  app.get('/api/admin/health',member,admin,rate('health',10,60000),async(req,res)=>{
   const page=Math.max(1,Math.min(10000,parseInt(req.query.page)||1));
-  const rows=await db.prepare("SELECT id,title,filename,storage_object,sha256,icon_data IS NOT NULL AS has_icon,coalesce(screen,substring(lower(filename) from '[0-9]{2,4}x[0-9]{2,4}')) AS screen FROM games WHERE visibility='public' ORDER BY id LIMIT 20 OFFSET ?").all((page-1)*20);
+  const rows=await db.prepare("SELECT id,title,filename,storage_object,sha256,icon_data IS NOT NULL AS has_icon,coalesce(screen,substring(lower(filename) from '[0-9]{2,4}x[0-9]{2,4}')) AS screen FROM games WHERE visibility='public' AND deleted_at IS NULL ORDER BY id LIMIT 20 OFFSET ?").all((page-1)*20);
   const items=await Promise.all(rows.map(async g=>{
    let file='Có tệp';if(g.storage_object){try{
     const object=g.storage_object.split('/').map(encodeURIComponent).join('/');

@@ -212,3 +212,26 @@ CREATE TABLE IF NOT EXISTS rate_limits (
 CREATE INDEX IF NOT EXISTS rate_limits_expiry ON rate_limits(expires_at);
 ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON rate_limits FROM PUBLIC;
+
+-- Discovery metadata is explicit: NULL means unknown, never inferred from visibility.
+ALTER TABLE games ADD COLUMN IF NOT EXISTS developer TEXT NOT NULL DEFAULT '';
+ALTER TABLE games ADD COLUMN IF NOT EXISTS release_year INTEGER CHECK(release_year BETWEEN 1980 AND 2100);
+ALTER TABLE games ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT '';
+ALTER TABLE games ADD COLUMN IF NOT EXISTS country TEXT NOT NULL DEFAULT '';
+ALTER TABLE games ADD COLUMN IF NOT EXISTS network_mode TEXT CHECK(network_mode IN ('online','offline'));
+ALTER TABLE games ADD COLUMN IF NOT EXISTS nostalgic BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE history ADD COLUMN IF NOT EXISTS play_seconds BIGINT NOT NULL DEFAULT 0 CHECK(play_seconds>=0);
+ALTER TABLE history ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS play_session TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS play_game TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS play_heartbeat TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS game_cloud_saves (
+ user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+ revision TEXT PRIMARY KEY, data BYTEA NOT NULL, sha256 TEXT NOT NULL,
+ updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+CREATE INDEX IF NOT EXISTS game_cloud_saves_owner ON game_cloud_saves(user_id,game_id,updated_at DESC);
+ALTER TABLE game_cloud_saves ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON game_cloud_saves FROM PUBLIC;

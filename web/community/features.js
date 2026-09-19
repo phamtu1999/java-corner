@@ -14,6 +14,20 @@ export async function enhanceFeatures({root,r,user,api,esc,openModal,notify,refr
     root.querySelectorAll('#versions .game-card').forEach((row,i)=>{
       if(user) row.querySelector('.card-bottom').append(control('⚑ Báo lỗi',()=>formModal('Báo lỗi phiên bản',`<p>${esc(g.variants[i].filename)}</p><label>Mô tả lỗi<textarea name="body" required minlength="5" maxlength="2000" placeholder="Ví dụ: màn hình đen sau khi mở game"></textarea></label>`,body=>api(`/games/${g.variants[i].id}/report`,{method:'POST',body})),'small'));
     });
+    if(user){
+      const progress=await api(`/games/${r.id}/progress`);
+      const completion=control(progress.completed_at?'Bỏ xác nhận hoàn thành':'Tôi đã hoàn thành',async b=>{
+        const completed=!progress.completed_at;
+        await api(`/games/${r.id}/completion`,{method:'PUT',body:{completed}});
+        progress.completed_at=completed?true:null;
+        b.textContent=completed?'Bỏ xác nhận hoàn thành':'Tôi đã hoàn thành';
+        b.setAttribute('aria-pressed',String(completed));
+      });
+      completion.title='Người chơi tự xác nhận, không phải thành tích được game chứng thực';
+      completion.setAttribute('aria-pressed',String(!!progress.completed_at));
+      tools.append(completion);
+      const note=document.createElement('span');note.className='muted';note.textContent=`${Math.floor(progress.play_seconds/60)} phút chơi · Hoàn thành do bạn tự xác nhận`;tools.append(note);
+    }
     if(g.visibility==='public'){
       const section=panel(`Đánh giá · ${social.count?Number(social.average).toFixed(1)+' / 5 ('+social.count+')':'Chưa có đánh giá'}`);
       if(user) section.append(control('☆ Viết / sửa đánh giá',()=>{

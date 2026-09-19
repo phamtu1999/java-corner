@@ -44,6 +44,43 @@ function uniqueJar() { const copy=Buffer.from(jar),comment=Buffer.from(randomUUI
 function upload(visibility='private', category='', bytes=uniqueJar()) {
   const form = new FormData(); form.set('title','Test game'); form.set('description','A Java ME game'); form.set('visibility',visibility); form.set('category_id',category); form.set('file',new Blob([bytes]),'test.jar'); return form;
 }
+test('automatic game cloud saves retain five revisions and reject conflicts',async t=>{
+ const {client}=await setup(t);const a=client(),b=client();await register(a,'auto_owner');await register(b,'auto_other');
+ const game=(await a('/games',{method:'POST',body:upload()})).data;
+ const path=`/games/${game.id}/cloud-saves`;
+ const save=(revision,bytes)=>{const body=new FormData();body.set('revision',revision);body.set('file',new Blob([bytes]),'save.zip');return body;};
+ assert.equal((await b(path)).status,404);
+ let revision='';const revisions=[];
+ for(let i=0;i<6;i++){const result=await a(path,{method:'POST',body:save(revision,Buffer.concat([jar,Buffer.from([i])]))});assert.equal(result.status,200,JSON.stringify(result.data));revision=result.data.revision;revisions.push(revision);}
+ assert.equal((await a(path)).data.length,5);
+ assert.equal((await a(path+'/'+revisions[0])).status,404);
+ assert.equal((await a(path+'/'+revision)).status,200);
+ assert.equal((await a(path,{method:'POST',body:save('',jar)})).status,409);
+ const same=await a(path,{method:'POST',body:save(revision,Buffer.concat([jar,Buffer.from([5])]))});assert.equal(same.data.revision,revision);
+ assert.equal((await a(path,{method:'POST',body:save(revision,Buffer.from('bad'))})).status,400);
+});
+test('admin JAR inspector is bounded to authorized uploads and detects duplicates',async t=>{
+  const {client,db,dataDir}=await setup(t);
+  const a=client(),b=client(),guest=client();const user=await register(a,'inspector_admin');await register(b,'inspector_member');
+  await db.prepare("UPDATE users SET role='admin' WHERE id=?").run(user.id);
+  assert.equal((await guest('/admin/jar-inspect',{method:'POST',body:upload()})).status,403);
+  assert.equal((await b('/admin/jar-inspect',{method:'POST',body:upload()})).status,403);
+  const result=await a('/admin/jar-inspect',{method:'POST',body:upload('private','',jar)});
+  assert.equal(result.status,200,JSON.stringify(result.data));assert.match(result.data.sha256,/^[a-f0-9]{64}$/);
+  assert.equal(result.data.classes,1);assert.equal(result.data.resources,1);assert.equal(result.data.manifest['midlet-name'],'Test');assert.equal(result.data.duplicates.length,0);
+  const game=await a('/games',{method:'POST',body:upload('private','',jar)});assert.equal(game.status,201);
+  const endpoint=`/admin/games/${game.data.id}/verify-archive`;
+  assert.equal((await b(endpoint,{method:'POST'})).status,403);
+  const inspected=await a(endpoint,{method:'POST'});
+  assert.equal(inspected.status,200,JSON.stringify(inspected.data));assert.equal(inspected.data.inspection.classes,1);
+  assert.deepEqual(inspected.data.inspection.duplicates,[]);
+  await db.prepare('UPDATE games SET sha256=? WHERE id=?').run('bad',game.data.id);
+  assert.equal((await a(endpoint,{method:'POST'})).status,422);
+  await db.prepare('UPDATE games SET sha256=? WHERE id=?').run(result.data.sha256,game.data.id);
+  const duplicate=await a('/admin/jar-inspect',{method:'POST',body:upload('private','',jar)});assert.equal(duplicate.data.duplicates[0].id,game.data.id);
+  assert.equal((await a('/admin/jar-inspect',{method:'POST',body:upload('private','',Buffer.from('invalid'))})).status,400);
+  assert.deepEqual(await readdir(join(dataDir,'tmp')),[]);
+});
 test('guides, forum reports, accepted answers, recycle bin and duplicate archives',async t=>{
  const removed=[];
  const {client,db}=await setup(t,{mediaStore:{remove:async media=>removed.push(...media)}});
@@ -302,7 +339,7 @@ test('database and sessions survive reopening; runtime remains range-enabled', a
 test('PostgreSQL tables deny browser roles and rollback partial writes', async t => {
   const { db, schema } = await setup(t);
   const tables = await db.query('SELECT relname,relrowsecurity FROM pg_class JOIN pg_namespace n ON n.oid=relnamespace WHERE n.nspname=$1 AND relkind=$2', [schema,'r']);
-  const expected=['rate_limits','users','sessions','categories','games','history','posts','comments','favorites','reviews','game_reports','notifications','cloud_saves','collections','collection_games','game_checks','admin_audit','game_guides','content_reports','cloud_save_versions','topic_follows','game_requests','game_updates'];
+  const expected=['game_cloud_saves','rate_limits','users','sessions','categories','games','history','posts','comments','favorites','reviews','game_reports','notifications','cloud_saves','collections','collection_games','game_checks','admin_audit','game_guides','content_reports','cloud_save_versions','topic_follows','game_requests','game_updates'];
   assert.deepEqual(tables.rows.map(row=>row.relname).sort(),expected.slice().sort());
   assert.ok(tables.rows.every(row => row.relrowsecurity));
   for (const role of ['anon','authenticated']) {
@@ -555,4 +592,31 @@ test('shared rate counter is atomic across independent database pools and expire
  assert.equal((await fetch(base+'/play')).headers.get('content-security-policy'),null);
  const privateTable=await db.query("SELECT relrowsecurity FROM pg_class WHERE oid='rate_limits'::regclass");
  assert.equal(privateTable.rows[0].relrowsecurity,true);
+});
+
+test('progress leases, private profiles and advanced catalog filters',async t=>{
+ const {client,db}=await setup(t);const a=client(),guest=client();const user=await register(a,'progress_user');
+ const g=(await a('/games',{method:'POST',body:upload()})).data;
+ const patch=await a(`/games/${g.id}`,{method:'PATCH',body:{title:'Progress game',description:'Test',publisher:'TeaMobi',developer:'Studio',network_mode:'offline',language:'vi',country:'VN',release_year:'2010',nostalgic:'true'}});
+ assert.equal(patch.status,200,JSON.stringify(patch.data));
+ assert.equal((await a('/games?scope=mine&network=offline&developer=Studio&year=2010&language=vi&smart=vietnam')).data.total,1);
+ assert.equal((await a('/games?scope=mine&network=online')).data.total,0);
+ assert.equal((await a('/games?scope=mine&year=invalid')).status,400);
+ assert.equal((await guest(`/games/${g.id}/playtime`,{method:'POST',body:{session:randomUUID(),active:true}})).status,401);
+ assert.equal((await a(`/games/${g.id}/completion`,{method:'PUT',body:{completed:true}})).status,400);
+ const session=randomUUID(),beat=body=>a(`/games/${g.id}/playtime`,{method:'POST',body});
+ assert.equal((await beat({session,active:true})).status,200);
+ await db.prepare("UPDATE users SET play_heartbeat=now()-interval '15 seconds' WHERE id=?").run(user.id);
+ await beat({session:randomUUID(),active:true});
+ assert.equal((await a(`/games/${g.id}/progress`)).data.play_seconds,0);
+ await beat({session,active:true});
+ const seconds=(await a(`/games/${g.id}/progress`)).data.play_seconds;assert(seconds>=15&&seconds<30);
+ await beat({session,active:true});assert((await a(`/games/${g.id}/progress`)).data.play_seconds<=seconds+1);
+ await db.prepare("UPDATE users SET play_heartbeat=now()-interval '2 minutes' WHERE id=?").run(user.id);
+ await beat({session,active:true});assert((await a(`/games/${g.id}/progress`)).data.play_seconds<=seconds+1);
+ assert.equal((await a(`/games/${g.id}/completion`,{method:'PUT',body:{completed:true}})).status,200);
+ const own=(await a('/profiles/'+user.id)).data;assert.equal(own.progress.games,1);assert.equal(own.progress.completed.length,1);assert.equal(own.progress.achievements[0].unlocked,true);
+ assert.equal((await guest('/profiles/'+user.id)).data.progress,undefined);
+ await db.prepare('UPDATE users SET profile_public=true WHERE id=?').run(user.id);
+ const publicProfile=(await guest('/profiles/'+user.id)).data;assert.equal(publicProfile.progress.games,0);assert.equal(publicProfile.progress.seconds,0);assert.deepEqual(publicProfile.progress.completed,[]);
 });

@@ -87,3 +87,24 @@ Kiểm thử: `npm test`; `sh scripts/build-emulator-network.sh` (gồm TCP/HTTP
 Anonymous GET requests to games (public scope only), categories, publishers and game-screens share a per-process cache for 10 seconds, bounded to 100 entries. Concurrent identical requests share the pending response. Authenticated requests bypass this cache. Any completed API mutation invalidates it, including failed mutations that may have partially written data. Direct database/import changes and other server processes are reflected within the TTL. Browser responses remain no-store.
 
 Repeat the read-only 50-client benchmark with `node scripts/load-web.mjs reports/load-50-users-cached.json`; this measures local anonymous HTTP, not emulator execution or game sockets.
+
+### Thành tích, thời gian chơi và khám phá game
+
+- Chạy `npm run db:migrate` trước khi triển khai phiên bản này: bổ sung metadata game và tiến trình vào các bảng hiện có.
+- Game trong kho khi chơi bằng tài khoản gửi heartbeat mỗi 15 giây sau khi màn hình Java khởi tạo. Chỉ tính tab hiển thị; một phiên mỗi tài khoản; khoảng gián đoạn trên 30 giây không được cộng bù. Không tính JAR cục bộ không thuộc kho, khách chưa đăng nhập hoặc thời gian trước khi tính năng được bật.
+- Hồ sơ có số game khác nhau (gộp phiên bản), giờ chơi và ba thành tích tự động: game đầu tiên, 10 giờ, 10 game. Hồ sơ công khai không tiết lộ tiến trình game riêng tư. Hoàn thành game do người chơi tự xác nhận tại trang chi tiết, không phải thành tích được emulator xác minh.
+- Bộ sưu tập thông minh dùng metadata đã nhập: TeaMobi, 240×320, Offline, Online, RPG, Việt Nam, tuổi thơ, mới trong 30 ngày và lịch sử gần đây. Nhóm chưa có metadata phù hợp sẽ trống; không suy đoán Offline từ dữ liệu thiếu.
+- Form sửa game bổ sung nhà phát hành/phát triển, năm, ngôn ngữ, quốc gia, chế độ mạng và đánh dấu tuổi thơ. Bộ lọc nâng cao thêm các trường này, cảm ứng, dung lượng byte và phản hồi tương thích; kết hợp với thể loại và độ phân giải hiện có.
+
+### Admin JAR Inspector
+
+- Admin chọn JAR trong form upload để xem SHA256, manifest, số class/resource (100 tên mẫu mỗi loại), gợi ý độ phân giải, chuỗi endpoint, quyền khai báo và bản trùng SHA256. Endpoint phân tích riêng, có xác thực admin, rate limit và dọn tệp tạm; không lưu hay đăng game cho đến khi bấm đăng.
+- Không thực thi JAR hay truy cập endpoint. Quét tối đa 32 MB giải nén, bỏ qua entry trên 2 MB; báo rõ khi bị giới hạn. Endpoint ghép/mã hóa có thể không được phát hiện. Quyền khai báo là dấu hiệu cần xem xét, không phải kết luận mã độc. Tương thích emulator cần chạy thử; Inspector chỉ xác nhận cấu trúc MIDlet.
+- Trùng lặp chỉ đối chiếu kho công khai và kho của admin hiện tại, kể cả thùng rác; không tiết lộ game riêng của tài khoản khác. Không tự thêm endpoint vào relay allowlist.
+- Trong Kiểm tra kho, mỗi game có nút Inspector và kết quả tại chỗ. Hỗ trợ JAR cục bộ và Supabase, đối chiếu SHA256 đã đăng ký; tải từ xa tối đa 50 MB/20 giây, 5 lượt/phút, không theo redirect. Tệp riêng dùng URL ký từ kho riêng. Báo cáo game đã lưu loại chính game đó và bản đã xóa khỏi danh sách trùng; kết quả không lưu lâu dài và không chứng nhận khả năng chạy emulator.
+
+### Auto Cloud Save
+
+- Chạy migration trước triển khai. Tài khoản chơi game thuộc kho được tự sao lưu RMS riêng từng phiên bản game, giữ 5 mốc; bản lưu toàn thư viện cũ không bị thay đổi. Không áp dụng JAR cục bộ chưa gắn với game trong kho hoặc dữ liệu trên máy chủ game online.
+- Kiểm tra ZIP RMS mỗi 10 giây khi tab hiển thị; chỉ gửi khi hai lần liên tiếp có cùng nội dung mới, tối đa một lần/phút. Giới hạn 3 MB/mốc, 100 MB/tài khoản. Dữ liệu chưa được game ghi xuống RMS không thể sao lưu. Đóng tab trước khi gửi có thể mất mốc cloud cuối, RMS trên máy vẫn còn.
+- Revision chống ghi đè từ thiết bị/tab khác. Bấm trạng thái cloud để xem 5 mốc, chọn khôi phục hoặc xác nhận tiếp tục từ máy này. Khôi phục tải lại trang rồi thay RMS trước khi chạy MIDlet; cơ chế GameSave giữ bản dự phòng tại máy. Lỗi mạng giữ dữ liệu máy và thử lại; xung đột dừng tự lưu. Không tự ghi đè dữ liệu máy bằng bản cloud khi mở game.

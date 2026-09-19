@@ -21,7 +21,8 @@ public final class GameSave {
         Path game = gamePath(appId);
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (final ZipOutputStream zip = new ZipOutputStream(bytes)) {
-            zip.putNextEntry(new ZipEntry(appId + "/app.jar")); zip.closeEntry();
+            ZipEntry marker = new ZipEntry(appId + "/app.jar"); marker.setTime(0);
+            zip.putNextEntry(marker); zip.closeEntry();
             final Path rms = game.resolve("rms");
             if (Files.exists(rms)) Files.walkFileTree(rms, new SimpleFileVisitor<Path>() {
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {

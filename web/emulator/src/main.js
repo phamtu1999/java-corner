@@ -1,3 +1,5 @@
+import {startPlaytime} from './playtime.js';
+import {setupAutoCloudSave} from './auto-cloud-save.js';
 import {confirmAction,showMessage} from '../../ui/dialogs.js';
 import './touch-settings.js';
 import {setupGamepad} from './gamepad.js';
@@ -11,6 +13,8 @@ import {setupNetwork, bindGameNetwork} from './network.js?v=20260917-7';
 const networkOptions = setupNetwork();
 import {mappedKey,setupKeySettings} from './key-settings.js';
 let communitySource = null;
+let stopPlaytime=()=>{};
+let stopAutoSave=()=>{};
 
 import { LibMedia } from "../libmedia/libmedia.js";
 import { LibMidi, createUnlockingAudioContext } from "../libmidi/libmidi.js";
@@ -272,7 +276,7 @@ async function init() {
                     display.style.display = '';
                     scaleSet = true;
                     try{const appId=sp.get('app');if(appId)localStorage.setItem('java-emulator.last-played:'+appId,String(Date.now()));}catch{}
-                    if (communitySource?.user) recordPlay(communitySource.game.id);
+                    if (communitySource?.user) {recordPlay(communitySource.game.id);stopPlaytime=startPlaytime(communitySource.game.id);}
                     display.focus();
                 }
                 screenCtx.canvas.width = width;
@@ -308,6 +312,8 @@ async function init() {
             },
             async Java_pl_zb3_freej2me_bridge_shell_Shell_exit(lib) {
                 window.dispatchEvent(new CustomEvent('game-startup-status',{detail:'Ứng dụng đã yêu cầu thoát'}));
+                stopPlaytime();
+                stopAutoSave();
                 console.info('MIDlet requested exit (notifyDestroyed).');
                 const loading = document.getElementById('loading');
                 if (display) display.style.display = 'none';
@@ -349,6 +355,7 @@ async function init() {
     if (sp.get('app')) {
         const app = sp.get('app');
         await ensureAppInstalled(lib, app);
+        if(communitySource?.user){try{stopAutoSave=await setupAutoCloudSave({gameId:communitySource.game.id,appId:app,user:communitySource.user,saves:await lib.org.recompile.freej2me.GameSave});}catch{console.warn('Không khởi tạo được Cloud Save; tiến trình vẫn lưu trên máy.');}}
 
         document.addEventListener('click', async event => {
             const link=event.target.closest('a[href="/library"]');

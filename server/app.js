@@ -1,3 +1,7 @@
+import {installPlayerProgress} from './player-progress.js';
+import {installGameCloudSave} from './game-cloud-save.js';
+import {inspectJar} from './jar-inspector.js';
+import {catalogFilters,metadataFields} from './catalog-filters.js';
 import {rateLimiter} from './rate-limit.js';
 import {gameStorage} from './game-storage.js';
 import {deploymentConfig} from './deployment.js';
@@ -154,14 +158,16 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
     if ((await db.prepare('SELECT id FROM games WHERE category_id=?').get(req.params.id))) fail(409, 'Hãy chuyển game sang thể loại khác trước khi xóa.');
     (await db.prepare('DELETE FROM categories WHERE id=?').run(req.params.id)); res.json({ ok: true });
   });
-  const gameSelect = `SELECT g.id,g.owner_id,g.visibility,g.category_id,g.title,g.description,g.filename,g.size,g.sha256,g.family_key,g.family_title,g.touch_supported,COALESCE(g.screen,substring(lower(g.filename) from '[0-9]{2,4}x[0-9]{2,4}')) AS screen,(g.icon_data IS NOT NULL) AS has_icon,g.created_at,c.name AS category FROM games g LEFT JOIN categories c ON c.id=g.category_id`;
+  const gameSelect = `SELECT g.id,g.owner_id,g.visibility,g.category_id,g.title,g.description,g.filename,g.size,g.sha256,g.family_key,g.family_title,g.touch_supported,g.publisher,g.developer,g.release_year,g.language,g.country,g.network_mode,g.nostalgic,COALESCE(g.screen,substring(lower(g.filename) from '[0-9]{2,4}x[0-9]{2,4}')) AS screen,(g.icon_data IS NOT NULL) AS has_icon,g.created_at,c.name AS category FROM games g LEFT JOIN categories c ON c.id=g.category_id`;
   async function gameFor(req, id) {
     const game = (await db.prepare(`${gameSelect} WHERE g.id=? AND g.deleted_at IS NULL AND (g.visibility='public' OR g.owner_id=?) AND (NOT g.hidden OR ?)` ).get(id, req.user?.id || '',req.user?.role==='admin'));
     if (!game) fail(404, 'Không tìm thấy game hoặc bạn không có quyền truy cập.');
     return game;
   }
+  installPlayerProgress(app,{db,member,gameFor,rate,fail});
+  installGameCloudSave(app,{db,member,gameFor,rate,fail,temp});
   installFeatures(app,{db,member,admin,gameFor,fail,field,rate,temp});
-  installCommunityExtras(app,{db,member,admin,gameFor,fail,field,rate,mediaStore,temp,uploads});
+  installCommunityExtras(app,{db,member,admin,gameFor,fail,field,rate,mediaStore,temp,uploads,jarStore});
   installSafetyFeatures(app,{db,member,admin,gameFor,fail,field,rate,mediaStore,uploads,jarStore});
   installDiscoveryFeatures(app,{db,member,admin,gameFor,fail,field,rate});
   app.get('/api/publishers',async(req,res)=>res.json(await db.prepare("SELECT DISTINCT publisher FROM games WHERE visibility='public' AND deleted_at IS NULL AND NOT hidden AND publisher<>'' ORDER BY publisher").all()));
@@ -193,6 +199,7 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
       if (screen === 'unknown') conditions.push("COALESCE(g.screen,substring(lower(g.filename) from '[0-9]{2,4}x[0-9]{2,4}')) IS NULL");
       else { conditions.push("COALESCE(g.screen,substring(lower(g.filename) from '[0-9]{2,4}x[0-9]{2,4}'))=?"); args.push(screen); }
     }
+    catalogFilters(req.query,conditions,args,fail);
     const page = Math.max(1, Math.min(100000, parseInt(req.query.page) || 1)), limit = 24;
     const from = `FROM games g LEFT JOIN categories c ON c.id=g.category_id ${join} WHERE ${conditions.join(' AND ')}`;
     if ((scope === 'public' && req.query.editions !== '1') || scope === 'history' || scope === 'favorites') {
@@ -258,6 +265,15 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
     res.sendFile(resolve(uploads, `${game.id}.jar`), { cacheControl: false });
   });
   const upload = multer({ dest: temp, limits: { fileSize: 20 * 1024 * 1024, files: 1, fields: 5, fieldSize: 12000 }, fileFilter: (req, file, cb) => cb(/\.jar$/i.test(file.originalname) ? null : Object.assign(new Error('Chỉ nhận game .jar.'), { status: 400 }), /\.jar$/i.test(file.originalname)) });
+  app.post('/api/admin/jar-inspect', admin, rate('jar-inspect', 10, 60000), uploadGuard(), upload.single('file'), async (req,res)=>{
+    try {
+      if(!req.file)fail(400,'Hãy chọn tệp .jar.');
+      let report;
+      try {report=await inspectJar(req.file.path,req.file.originalname);}catch(error){fail(400,error.message);}
+      report.duplicates=await db.prepare("SELECT id,title,deleted_at FROM games WHERE sha256=? AND (visibility='public' OR owner_id=?) LIMIT 20").all(report.sha256,req.user.id);
+      res.json(report);
+    } finally {if(req.file)rmSync(req.file.path,{force:true});}
+  });
   app.post('/api/games', member, rate('upload', 30, 3600000),uploadGuard(), upload.single('file'), async (req, res) => {
     let destination, remote, committed = false;
     try {
@@ -300,7 +316,8 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
     if (screen && !/^[0-9]{2,4}x[0-9]{2,4}$/.test(screen)) fail(400,'Màn hình cần có dạng 240x320.');
     const touch=req.body.touch_supported===undefined?game.touch_supported:req.body.touch_supported===''?null:req.body.touch_supported==='true'?true:req.body.touch_supported==='false'?false:undefined;
     if(touch===undefined)fail(400,'Thông tin cảm ứng không hợp lệ.');
-    (await db.prepare('UPDATE games SET title=?,description=?,category_id=?,screen=?,touch_supported=? WHERE id=?').run(title, description, category, screen,touch, game.id));
+    const metadata=metadataFields(req.body,game,fail);
+    await db.prepare('UPDATE games SET title=?,description=?,category_id=?,screen=?,touch_supported=?,publisher=?,developer=?,release_year=?,language=?,country=?,network_mode=?,nostalgic=? WHERE id=?').run(title,description,category,screen,touch,metadata.publisher,metadata.developer,metadata.release_year,metadata.language,metadata.country,metadata.network_mode,metadata.nostalgic,game.id);
     res.json(await gameFor(req, game.id));
   });
   app.delete('/api/games/:id', member, async (req, res) => {
