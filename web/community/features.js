@@ -9,7 +9,8 @@ export async function enhanceFeatures({root,r,user,api,esc,openModal,notify,refr
     const [g,social]=await Promise.all([api(`/games/${r.id}`),api(`/games/${r.id}/social`)]);
     const tools=document.createElement('div');tools.className='feature-toolbar';
     if(user) tools.append(control(social.favorite?'♥ Đã yêu thích':'♡ Yêu thích',async b=>{await api(`/games/${r.id}/favorite`,{method:'POST',body:{enabled:!social.favorite}});social.favorite=!social.favorite;b.textContent=social.favorite?'♥ Đã yêu thích':'♡ Yêu thích';b.setAttribute('aria-pressed',String(social.favorite));}));
-    tools.querySelector('button')?.setAttribute('aria-pressed',String(social.favorite));root.querySelector('.heading').after(tools);
+    tools.querySelector('button')?.setAttribute('aria-pressed',String(social.favorite));root.querySelector('.game-detail-hero').after(tools);
+    root.querySelector('.game-detail-rating').textContent=social.count ? `★ ${Number(social.average).toFixed(1)} / 5 · ${social.count} đánh giá` : 'Chưa có đánh giá';
     root.querySelectorAll('#versions .game-card').forEach((row,i)=>{
       if(user) row.querySelector('.card-bottom').append(control('⚑ Báo lỗi',()=>formModal('Báo lỗi phiên bản',`<p>${esc(g.variants[i].filename)}</p><label>Mô tả lỗi<textarea name="body" required minlength="5" maxlength="2000" placeholder="Ví dụ: màn hình đen sau khi mở game"></textarea></label>`,body=>api(`/games/${g.variants[i].id}/report`,{method:'POST',body})),'small'));
     });

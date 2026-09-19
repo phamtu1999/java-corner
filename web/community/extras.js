@@ -23,7 +23,7 @@ export async function enhanceExtras({root,r,user,api,esc,openModal,notify,refres
   return;
  }
  if(r.view==='game'){
-  const controls=root.querySelector('.heading').nextElementSibling;
+  const controls=root.querySelector('.feature-toolbar');
   if(user)controls.append(button('Thêm vào bộ sưu tập',async()=>{const all=await api('/collections');if(!all.length){collectionForm(null);return;}form('Thêm game vào bộ sưu tập',`<label>Bộ sưu tập<select name="collection">${all.map(c=>`<option value="${esc(c.id)}">${esc(c.title)}</option>`).join('')}</select></label>`,data=>api(`/collections/${data.collection}/games`,{method:'POST',body:{game_id:r.id}}));}));
   const section=document.createElement('section');section.className='panel feature-panel';section.innerHTML='<h2>Gợi ý phiên bản</h2><label>Màn hình mong muốn<select aria-label="Màn hình gợi ý"><option>128x160</option><option>176x220</option><option selected>240x320</option><option>320x240</option><option>240x400</option><option>360x640</option><option>480x800</option></select></label><p class="recommend-result" aria-live="polite"></p><p class="muted">Gợi ý theo kích thước và bản bạn xác nhận chơi tốt. Chưa xác định được hỗ trợ cảm ứng từ thông tin hiện có.</p>';
   const select=section.querySelector('select');try{select.value=localStorage.getItem('preferred-screen')||'240x320';if(!select.value)select.value='240x320';}catch{}
