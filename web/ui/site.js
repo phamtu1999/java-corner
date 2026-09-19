@@ -68,6 +68,7 @@ if (header) {
         try {
           const response = await fetch('/api/logout', { method: 'POST', headers: { 'X-Requested-With': 'JavaCommunity' } });
           if (!response.ok) throw new Error('Không đăng xuất được. Hãy thử lại.');
+          localStorage.removeItem('java-corner.offline-metadata');
           location.href = '/games';
         } catch (error) { logout.disabled = false; await showMessage(error.message); }
       };
@@ -81,7 +82,7 @@ if (header) {
 const footer = document.getElementById('site-footer');
 if (footer) {
   footer.className = 'site-footer';
-  footer.innerHTML = '<span>Java Corner · Game Java ME</span><span><a href="/library">Quản lý bản lưu</a> · <a href="/emulator/LICENSE.txt">FreeJ2ME &amp; CheerpJ</a></span>';
+  footer.innerHTML = '<span>Java Corner · Game Java ME</span><span><a href="/offline.html">Cài app / Metadata offline</a> · <a href="/library">Quản lý bản lưu</a> · <a href="/emulator/LICENSE.txt">FreeJ2ME &amp; CheerpJ</a></span>';
 }
 
 if (page === 'player' && header) {
@@ -89,3 +90,5 @@ if (page === 'player' && header) {
     document.documentElement.style.setProperty('--site-header-height', `${header.getBoundingClientRect().height}px`);
   }).observe(header);
 }
+
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});

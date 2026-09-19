@@ -1,11 +1,12 @@
+import {setupDiagnostics} from './diagnostics.js';
 import {applyPlayerJavaSettings} from './profile-sync.js';
 import {startPlaytime} from './playtime.js';
 import {setupAutoCloudSave} from './auto-cloud-save.js';
 import {confirmAction,showMessage} from '../../ui/dialogs.js';
 import './touch-settings.js';
 import {setupGamepad} from './gamepad.js';
-import './support.js';
-import {setupTextInput} from './text-input.js?v=1';
+import './support.js?v=20260919-archive';
+import {setupTextInput} from './text-input.js?v=20260919-archive';
 import relayNatives from './relay.js?v=3';
 import { communityGameId, resolveCommunityGame, recordPlay } from "./community-bridge.js";
 import {preferences,setupPreferences} from './preferences.js';
@@ -14,13 +15,14 @@ import {setupNetwork, bindGameNetwork} from './network.js?v=20260917-7';
 const networkOptions = setupNetwork();
 import {mappedKey,setupKeySettings} from './key-settings.js';
 let communitySource = null;
+let reportCrash=()=>{};
 let stopPlaytime=()=>{};
 let stopAutoSave=()=>{};
 
 import { LibMedia } from "../libmedia/libmedia.js";
 import { LibMidi, createUnlockingAudioContext } from "../libmidi/libmidi.js";
 import { codeMap, KeyRepeatManager } from "./key.js";
-import { EventQueue } from "./eventqueue.js";
+import { EventQueue } from "./eventqueue.js?v=20260919-archive";
 import { initKbdListeners, setKbdHandler } from "./screenKbd.js";
 
 import { initLayout, fitScale } from "./layout.js";
@@ -240,6 +242,7 @@ async function init() {
     display = document.getElementById('display');
     screenCtx = display.getContext('2d');
 
+    reportCrash=setupDiagnostics(evtQueue,communitySource);
     setListeners();
 
     window.libmidi = new LibMidi(createUnlockingAudioContext());
@@ -378,6 +381,7 @@ async function init() {
 }
 
 init().catch(error => {
+    reportCrash(error);
     window.dispatchEvent(new CustomEvent('game-startup-status',{detail:'Lỗi khi khởi động; xem Console để biết chi tiết'}));
     console.error(error);
     const loading = document.getElementById('loading');

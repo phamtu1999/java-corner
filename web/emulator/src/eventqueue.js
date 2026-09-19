@@ -19,6 +19,7 @@ export class EventQueue {
         if (skipIfExists && this.queue.some(skipIfExists)) {
             return;
         }
+        this.observe?.(evt);
         this.queue.push(evt);
         if (this.resolvePromise) {
             this.resolvePromise(true);

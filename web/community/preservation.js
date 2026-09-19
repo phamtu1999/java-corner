@@ -1,7 +1,7 @@
 import {renderJarInspection} from './jar-inspector.js?v=20260919-stock';
 export async function setupPreservation({root,r,user,api,esc,openModal,notify,refresh}) {
  if(r.view==='admin'&&user?.role==='admin'){
-  const button=document.createElement('button');button.type='button';button.textContent='Độ đầy đủ kho game';root.querySelector('.admin-tabs').after(button);
+  const button=document.createElement('button');button.type='button';button.textContent='Độ đầy đủ kho game';const tools=document.createElement('div');tools.className='feature-toolbar';tools.append(button);root.querySelector('.admin-tabs').after(tools);
   button.onclick=async()=>{
    button.disabled=true;
    const labels={jar:'JAR đã kiểm tra',screenshot:'Ảnh từ Boot Test',publisher:'Nhà phát hành',year:'Năm phát hành',lineage:'Liên kết phiên bản gốc',boot:'Đã chạy Boot Test'};

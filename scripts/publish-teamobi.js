@@ -1,9 +1,9 @@
+import {teamobiRecord} from './importers/teamobi/index.js';
 import {readFileSync,writeFileSync} from 'node:fs';
 import {createHash,randomUUID} from 'node:crypto';
 import {openDatabase} from '../server/db.js';
 import {validateJar,extractJarIcon} from '../server/jar.js';
 const files=JSON.parse(readFileSync('downloads/teamobi/latest-manifest.json')).filter(f=>!f.error);
-const names={'118-1':'Mobi Army 3','30-18':'Avatar Online','31-4':'Khí Phách Anh Hùng','116-14':'Khí Phách Anh Hùng','116-1':'Chú Bé Rồng','116-13':'Hải Tặc Tí Hon','116-4':'Knight Age','116-11':'Ngũ Long Tranh Bá','116-10':'Ninja School Online'};
 const key=process.env.SUPABASE_SECRET_KEY,base=process.env.SUPABASE_URL,bucket=process.env.SUPABASE_STORAGE_BUCKET;
 const headers={apikey:key,...(key.startsWith('sb_secret_')?{}:{Authorization:`Bearer ${key}`})};
 const hash=b=>createHash('sha256').update(b).digest('hex');
@@ -15,7 +15,7 @@ try{
   const bytes=readFileSync(f.path);if(hash(bytes)!==f.sha256)throw Error('Checksum mismatch');await validateJar(f.path);
   const old=await db.prepare("SELECT id FROM games WHERE visibility='public' AND sha256=? LIMIT 1").get(f.sha256);
   if(old){report.push({...f,id:old.id,status:'existing'});continue;}
-  const variant=f.path.split('/').pop().replace('.jar','');const name=names[variant];if(!name)throw Error('Unknown title');
+  const variant=f.path.split('/').pop().replace('.jar','');const name=teamobiRecord(f).title;
   const object=`teamobi/official/${variant}/${f.sha256}.jar`;const url=base+'/storage/v1/object/'+bucket+'/'+object;
   const uploaded=await fetch(url,{method:'POST',headers:{...headers,'Content-Type':'application/java-archive','x-upsert':'false'},body:bytes});
   if(!uploaded.ok&&uploaded.status!==409){const e=await uploaded.json();if(e.error!=='Duplicate'&&String(e.statusCode)!=='409')throw Error('Upload '+uploaded.status);}

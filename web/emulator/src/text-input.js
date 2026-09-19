@@ -24,6 +24,7 @@ export function setupTextInput(display, queue) {
     panel.onsubmit=e=>{e.preventDefault();const skipped=send(field.value);field.value='';panel.querySelector('[role=status]').textContent=skipped?'Đã gửi; game Java không hỗ trợ một số ký tự như emoji.':'Đã gửi vào ô đang chọn trong game.';display.focus();};
     button.onclick = () => {
         enabled = !enabled;
+        queue.textModeChanged?.(enabled);
         panel.hidden=!enabled;field.value='';
         button.setAttribute('aria-pressed', String(enabled));
         button.title = 'Nhập chữ bằng bàn phím: ' + (enabled ? 'bật — chọn ô trong game rồi gõ; bấm để tắt' : 'tắt');

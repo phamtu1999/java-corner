@@ -10,7 +10,7 @@ test('relay rejects unauthenticated and forbidden targets, forwards binary TCP',
  const target='127.0.0.1:'+tcp.address().port;
  const oldPolicy=process.env.GAME_NETWORK_ENDPOINTS;
  process.env.GAME_NETWORK_ENDPOINTS=JSON.stringify({test:['tcp://'+target]});
- const db={prepare:sql=>({get:async()=>sql.includes('rate_limits')?{hits:1,retry:60}:sql.includes('sha256')?{sha256:'test'}:{user_id:'test'}})};
+ const db={prepare:sql=>({run:async()=>({changes:1}),get:async()=>sql.includes('rate_limits')?{hits:1,retry:60}:sql.includes('sha256')?{sha256:'test'}:{user_id:'test'}})};
  const server=http.createServer();const stop=attachGameNetwork(server,db,async value=>{if(value!==target)throw Error('blocked');return {address:'127.0.0.1',family:4,port:tcp.address().port};});
  server.listen(0,'127.0.0.1');await once(server,'listening');const origin=process.env.SITE_ORIGIN||'http://127.0.0.1:'+server.address().port;
  const base='ws://127.0.0.1:'+server.address().port+'/game-network?game_id=test&target=';

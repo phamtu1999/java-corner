@@ -1,3 +1,4 @@
+import {validateReplay} from '../web/emulator/src/replay-format.js';
 import {deploymentConfig} from './deployment.js';
 import {readFileSync,rmSync} from 'node:fs';
 import {uploadGuard} from './upload-guard.js';
@@ -34,7 +35,8 @@ export function installFeatures(app, {db, member, admin, gameFor, fail, field, r
   app.post('/api/games/:id/report', member, rate('reports',10,3600000), async (req,res) => {
     const g=await gameFor(req,req.params.id);
     const body=field(req.body.body,'Mô tả lỗi',5,2000);
-    await db.prepare('INSERT INTO game_reports(id,user_id,game_id,body) VALUES (?,?,?,?)').run(randomUUID(),req.user.id,g.id,body);
+    let replay=null;if(req.body.replay!=null){try{replay=validateReplay(req.body.replay,g.sha256);}catch(e){fail(400,e.message);}}
+    await db.prepare('INSERT INTO game_reports(id,user_id,game_id,body,replay) VALUES (?,?,?,?,?::jsonb)').run(randomUUID(),req.user.id,g.id,body,JSON.stringify(replay));
     res.json({ok:true});
   });
   app.get('/api/reports', member, admin, async (req,res) => res.json(await db.prepare(`SELECT r.*,g.title,g.filename,u.name AS author FROM game_reports r JOIN games g ON g.id=r.game_id JOIN users u ON u.id=r.user_id ORDER BY r.resolved,r.created_at DESC LIMIT 200`).all()));

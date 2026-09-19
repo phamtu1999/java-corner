@@ -1,6 +1,8 @@
-import {setupPreservation} from './preservation.js?v=20260919-completeness';
+import {setupArchiveTools} from './archive-tools.js';
+import {setupPreservation} from './preservation.js?v=20260919-archive';
 import {setupBootTests} from './boot-tests.js';
 export async function enhanceFeatures({root,r,user,api,esc,openModal,notify,refresh,categories}) {
+  setupArchiveTools({root,r,user,api,esc,openModal,notify,refresh});
   await setupPreservation({root,r,user,api,esc,openModal,notify,refresh});
   await setupBootTests({root,r,user,api,esc,openModal,notify});
   const control=(label,fn,cls='')=>{const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=label;b.onclick=async()=>{b.disabled=true;try{await fn(b);}catch(e){notify(e.message,'error');}finally{b.disabled=false;}};return b;};
@@ -44,7 +46,8 @@ export async function enhanceFeatures({root,r,user,api,esc,openModal,notify,refr
   if(r.view==='admin'&&user?.role==='admin'){
     const toolbar=document.createElement('div');toolbar.className='feature-toolbar';root.querySelector('.admin-tabs').after(toolbar);
     toolbar.append(control('⚑ Báo lỗi game',async()=>{
-      const reports=await api('/reports');openModal(`<h2 id="modal-title">Báo lỗi phiên bản</h2><div class="reports-list">${reports.map(v=>`<article class="review"><strong>${esc(v.title)}</strong><small>${esc(v.filename)} · ${esc(v.author)}</small><p>${esc(v.body)}</p><button type="button" data-report="${esc(v.id)}" data-resolved="${v.resolved}">${v.resolved?'Mở lại':'Đánh dấu đã xử lý'}</button></article>`).join('')||'<p>Chưa có báo lỗi.</p>'}</div>`);
+      const reports=await api('/reports');openModal(`<h2 id="modal-title">Báo lỗi phiên bản</h2><div class="reports-list">${reports.map(v=>`<article class="review"><strong>${esc(v.title)}</strong><small>${esc(v.filename)} · ${esc(v.author)}</small><p>${esc(v.body)}</p>${v.replay?`<button type="button" data-replay="${esc(v.id)}">Tải replay JSON</button>`:''}<button type="button" data-report="${esc(v.id)}" data-resolved="${v.resolved}">${v.resolved?'Mở lại':'Đánh dấu đã xử lý'}</button></article>`).join('')||'<p>Chưa có báo lỗi.</p>'}</div>`);
+      document.querySelectorAll('[data-replay]').forEach(b=>b.onclick=()=>{const value=reports.find(r=>r.id===b.dataset.replay)?.replay;if(!value)return;const url=URL.createObjectURL(new Blob([JSON.stringify(value)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='java-corner-replay.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
       document.querySelectorAll('[data-report]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{const resolved=b.dataset.resolved!=='true';await api(`/reports/${b.dataset.report}`,{method:'PATCH',body:{resolved}});b.dataset.resolved=String(resolved);b.textContent=resolved?'Mở lại':'Đánh dấu đã xử lý';}catch(e){notify(e.message,'error');}finally{b.disabled=false;}});
     }));
     if(!root.querySelector('.admin-catalog')) return;

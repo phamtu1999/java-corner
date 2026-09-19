@@ -1,3 +1,4 @@
+import {giaitriRecord} from './importers/giaitri321/index.js';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
@@ -14,7 +15,7 @@ for (const item of inventory) {
   if (item.status !== 'downloaded') continue;
   const stored = upload.files[item.path];
   if (stored?.status !== 'verified' || stored.sha256 !== item.sha256) throw new Error('Unverified file: ' + item.path);
-  const path = resolve(root, item.path);
+  const path = giaitriRecord(item,root).jar;
   if (!path.startsWith(root) || !path.endsWith('.jar')) throw new Error('Invalid path');
   if (createHash('sha256').update(readFileSync(path)).digest('hex') !== item.sha256) throw new Error('Local checksum mismatch');
   try { await validateJar(path); } catch { skipped.push({path:item.path,reason:'Không đạt kiểm tra JAR Java ME của ứng dụng'}); continue; }

@@ -1,9 +1,9 @@
-import {advancedFilters,smartCollections,metadataEditor} from './catalog-tools.js';
+import {advancedFilters,smartCollections,metadataEditor} from './catalog-tools.js?v=20260919-archive';
 import {setupJarInspector} from './jar-inspector.js?v=20260919-stock';
 import {checkUpload} from '/ui/deployment.js';
 import {setupDraft, clearDraft, setupTopicSearch} from './writing.js';
-import { decorateAccount } from '../ui/site.js?v=20260918-1';
-import {enhanceFeatures} from './features.js?v=20260919-completeness';
+import { decorateAccount } from '../ui/site.js?v=20260919-archive';
+import {enhanceFeatures} from './features.js?v=20260919-archive';
 import {enhanceExtras} from './extras.js?v=20260919-inspector-stock';
 import {setupHeaderTools,openAccount} from '../ui/header-tools.js?v=20260917-6';
 import {enhanceSafety} from './safety-features.js?v=20260919-filters';
@@ -356,7 +356,7 @@ document.addEventListener('click', async e => {
   const { action, id } = el.dataset;
   try {
     if (action === 'login' || action === 'register') auth(action);
-    else if (action === 'logout') { await api('/logout',{method:'POST'}); state.user=null; modal.close(); await render(); notify('Đã đăng xuất.'); }
+    else if (action === 'logout') { await api('/logout',{method:'POST'}); localStorage.removeItem('java-corner.offline-metadata'); state.user=null; modal.close(); await render(); notify('Đã đăng xuất.'); }
     else if (action === 'choose-game') {
       el.disabled = true;
       try {

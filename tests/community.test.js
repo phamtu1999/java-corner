@@ -352,7 +352,7 @@ test('database and sessions survive reopening; runtime remains range-enabled', a
 test('PostgreSQL tables deny browser roles and rollback partial writes', async t => {
   const { db, schema } = await setup(t);
   const tables = await db.query('SELECT relname,relrowsecurity FROM pg_class JOIN pg_namespace n ON n.oid=relnamespace WHERE n.nspname=$1 AND relkind=$2', [schema,'r']);
-  const expected=['player_profiles','game_cloud_saves','rate_limits','users','sessions','categories','games','history','posts','comments','favorites','reviews','game_reports','notifications','cloud_saves','collections','collection_games','game_checks','admin_audit','game_guides','content_reports','cloud_save_versions','topic_follows','game_requests','game_updates'];
+  const expected=['emulator_crashes','operation_counts','relay_instances','player_profiles','game_cloud_saves','rate_limits','users','sessions','categories','games','history','posts','comments','favorites','reviews','game_reports','notifications','cloud_saves','collections','collection_games','game_checks','admin_audit','game_guides','content_reports','cloud_save_versions','topic_follows','game_requests','game_updates'];
   assert.deepEqual(tables.rows.map(row=>row.relname).sort(),expected.slice().sort());
   assert.ok(tables.rows.every(row => row.relrowsecurity));
   for (const role of ['anon','authenticated']) {
@@ -624,9 +624,9 @@ test('progress leases, private profiles and advanced catalog filters',async t=>{
  assert.equal((await a(`/games/${g.id}/progress`)).data.play_seconds,0);
  await beat({session,active:true});
  const seconds=(await a(`/games/${g.id}/progress`)).data.play_seconds;assert(seconds>=15&&seconds<30);
- await beat({session,active:true});assert((await a(`/games/${g.id}/progress`)).data.play_seconds<=seconds+1);
+ const started=Date.now();await beat({session,active:true});const after=(await a(`/games/${g.id}/progress`)).data.play_seconds;assert(after<=seconds+Math.ceil((Date.now()-started)/1000)+1);
  await db.prepare("UPDATE users SET play_heartbeat=now()-interval '2 minutes' WHERE id=?").run(user.id);
- await beat({session,active:true});assert((await a(`/games/${g.id}/progress`)).data.play_seconds<=seconds+1);
+ await beat({session,active:true});assert.equal((await a(`/games/${g.id}/progress`)).data.play_seconds,after);
  assert.equal((await a(`/games/${g.id}/completion`,{method:'PUT',body:{completed:true}})).status,200);
  const own=(await a('/profiles/'+user.id)).data;assert.equal(own.progress.games,1);assert.equal(own.progress.completed.length,1);assert.equal(own.progress.achievements[0].unlocked,true);
  assert.equal((await guest('/profiles/'+user.id)).data.progress,undefined);
@@ -701,3 +701,33 @@ test('player profiles isolate accounts, validate settings and reject stale revis
  assert.equal((await guest(`/public/games/${g.id}/versions`)).status,404);
  assert.equal((await a('/admin/preservation-completeness')).data.total,0);
  });
+
+test('diagnostics and reconciliation enforce consent payload, ownership and revisions',async t=>{
+ const {client,db}=await setup(t),a=client(),b=client(),guest=client();const user=await register(a,'diagnostic_admin');await register(b,'diagnostic_other');await db.prepare("UPDATE users SET role='admin' WHERE id=?").run(user.id);
+ const g=(await a('/games',{method:'POST',body:upload()})).data;
+ const sha=(await a('/games/'+g.id)).data.sha256;
+ const payload={sha256:sha,runtime:'freej2me-relay-v3-cheerpj-20260317',exception:'TypeError',signature:'a'.repeat(64),screen:'240x320',network:false};
+ const post=body=>a(`/games/${g.id}/telemetry`,{method:'POST',body});
+ assert.equal((await guest(`/games/${g.id}/telemetry`,{method:'POST',body:payload})).status,401);
+ assert.equal((await b(`/games/${g.id}/telemetry`,{method:'POST',body:payload})).status,404);
+ assert.equal((await post({...payload,message:'secret'})).status,400);assert.equal((await post({...payload,signature:'password'})).status,400);
+ assert.equal((await post(payload)).status,200);assert.equal((await post(payload)).status,200);
+ const telemetry=await a('/admin/telemetry');assert.equal(telemetry.data[0].occurrences,2);assert.equal(telemetry.data[0].versions,1);assert.equal((await b('/admin/telemetry')).status,403);
+ const replay={version:1,sha256:sha,events:[{ms:0,code:38,down:true},{ms:50,code:38,down:false}]};
+ assert.equal((await a(`/games/${g.id}/report`,{method:'POST',body:{body:'Replay test report',replay}})).status,200);
+ assert.equal((await a('/reports')).data[0].replay.events.length,2);
+ assert.equal((await a(`/games/${g.id}/report`,{method:'POST',body:{body:'Replay test report',replay:{...replay,events:[{ms:0,code:49,down:true}]}}})).status,400);
+ const path=`/admin/games/${g.id}/metadata`;assert.equal((await b(path)).status,403);
+ await db.prepare('UPDATE games SET source_metadata=?::jsonb WHERE id=?').run(JSON.stringify({title:'Source title',publisher:'TeaMobi'}),g.id);
+ const before=(await a(path)).data;
+ assert.equal((await a(path,{method:'PUT',body:{revision:before.revision,choices:{title:'source',publisher:'manifest'}}})).status,200);
+ assert.equal((await a(path,{method:'PUT',body:{revision:before.revision,choices:{title:'manifest'}}})).status,409);
+ const after=(await a(path)).data;assert.equal(after.fields.title.current,'Source title');assert.equal(after.fields.title.verified,true);
+ assert.equal((await a(path,{method:'PUT',body:{revision:after.revision,choices:{storage_object:'source'}}})).status,400);
+ assert.equal((await guest('/admin/operations')).status,401);assert.equal((await b('/admin/operations')).status,403);assert.equal((await a('/admin/operations')).status,200);
+ await db.prepare("UPDATE games SET visibility='public',inspection=jsonb_set(jsonb_set(inspection,'{manifest,microedition-profile}','\"MIDP-2.0\"'),'{endpoints}','[\"socket://example.com:14444\"]') WHERE id=?").run(g.id);
+ const search=await a('/games?midp=MIDP-2.0&transport=socket');assert.equal(search.status,200,JSON.stringify(search.data));assert.equal(search.data.total,1);
+ assert.equal((await a('/games?midp=MIDP-1.0&transport=socket')).data.total,0);
+ assert.equal((await a('/games?boot=captured')).data.total,0);
+ assert.equal((await a('/games?transport=evil')).status,400);
+});

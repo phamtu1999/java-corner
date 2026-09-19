@@ -141,3 +141,23 @@ Repeat the read-only 50-client benchmark with `node scripts/load-web.mjs reports
 - Admin → Độ đầy đủ kho game: đếm phiên bản công khai chưa xóa (gồm bản ẩn), lọc danh sách thiếu từng tiêu chí, 20 phiên bản/trang. Inspector/ảnh/Boot Test chỉ tính khi SHA256 khớp JAR hiện tại. Ảnh ở đây là ảnh Boot Test; chưa tổng hợp ảnh từ bài viết. Boot Test đếm cả kết quả lỗi, không có nghĩa tương thích tốt. Liên kết cha không bắt buộc với bản gốc. Network reviewed chưa có dữ liệu xác nhận nên không tính phần trăm.
 - API chỉ đọc: `GET /api/public/games/:id`, `GET /api/public/games/:id/versions?page=1`, `GET /api/public/publishers/:id?page=1`. Publisher ID là tên hãng chính xác được URL-encode; mỗi trang tối đa 50 phiên bản.
 - API công khai luôn loại game riêng/ẩn/đã xóa, kể cả khi admin gọi. Chỉ trả ID, tên, hãng, developer, màn hình, năm, ngôn ngữ, chế độ mạng/cảm ứng, kích thước và SHA256. Không trả Storage URL/object, owner, báo cáo Inspector hoặc dữ liệu tài khoản. Giới hạn 120 yêu cầu/phút qua bộ rate limiter hiện có.
+
+
+### Replay, chẩn đoán, vận hành và tìm kiếm kỹ thuật
+
+- Nút Replay trên player: người dùng chủ động ghi tối đa 60 giây/500 sự kiện điều hướng, Enter và softkey. Không ghi phím chữ/số, pointer, nội dung chat/password; chuyển sang nhập chữ hoặc ẩn tab sẽ dừng. Có thể xuất JSON hoặc chọn đính kèm báo lỗi. Admin tải JSON trong báo lỗi rồi nhập tại player cùng SHA256 để phát lại; cần tự đưa game về cùng trạng thái ban đầu. Không phải replay xác định hay save state.
+- Telemetry mặc định tắt. Bật tại Replay và chẩn đoán để gửi SHA256, phiên bản runtime, loại lỗi JavaScript, SHA256 của stack (không gửi stack thô), màn hình và trạng thái mạng. Thu lỗi JS chưa xử lý và lỗi khởi động đi qua main; chưa thu được mọi exception Java nội bộ CheerpJ. Tối đa 1 lần/phút phía trình duyệt, 20 lần/giờ phía API; tổng hợp 30 ngày theo chữ ký. Admin → Lỗi emulator. Dữ liệu do client gửi không phải kết quả kiểm thử đáng tin cậy.
+- Admin → Vận hành: số game thêm/phút, boot queue, dung lượng JAR theo DB và save từng game, DB round trip, sự kiện 5xx/rate limit/endpoint từ chối trong giờ qua, socket relay qua heartbeat có TTL 90 giây. Không đo object mồ côi/media trên Storage; số liệu bắt đầu từ phiên bản này. Bộ đếm dùng PostgreSQL, không phụ thuộc bộ nhớ Vercel. Dữ liệu đếm cũ dọn khi mở dashboard.
+- Bộ lọc nâng cao thêm MIDP, CLDC, endpoint socket/HTTP và kết quả boot; chỉ dùng Inspector/boot khớp SHA256. “Đã lấy khung hình” không phải Boot verified. Chưa có thông tin không tự suy ra tương thích.
+
+### Importer và đối chiếu metadata
+
+- `node --env-file=.env scripts/import-games.js --importer local-folder --input /path/to/jars` kiểm tra và xuất preview. Thêm `--apply --owner ADMIN_ID --category CATEGORY_ID` để nhập Supabase dưới dạng game công khai đang ẩn, chờ admin duyệt. Không tự publish; không chạy importer production trong đợt triển khai này.
+- Adapter trong `scripts/importers/`: teamobi (latest-manifest.json), giaitri321 (manifest.json), archive (mảng schema chuẩn, đường dẫn JAR tương đối manifest), local-folder (JAR ngay trong thư mục). Schema chung: title, jar, sourceUrl, publisher, version, images. Không tự tải URL hoặc chạy JAR. Giới hạn 100 JAR/lượt, 20 MB/JAR; Inspector và checksum kiểm tra trước khi ghi. Game trùng SHA256 công khai bị bỏ qua; không ghi đè metadata cũ.
+- Admin tại chi tiết game → Đối chiếu metadata: chọn giá trị hiện tại, nguồn importer hoặc Manifest; chỉ cập nhật trường được chọn, đánh dấu xác minh, revision ngăn ghi đè khi dữ liệu đã đổi. Chọn nguồn khác là hành động admin rõ ràng thay giá trị đã xác minh. Chỉnh sửa truyền thống làm giá trị khác dấu xác minh thì không còn được coi đã xác minh. Game nhập trước đây chưa có source_metadata sẽ không có lựa chọn nguồn cho đến khi bổ sung.
+
+### PWA và thư viện metadata offline
+
+- Footer → Cài app / Metadata offline. Mở thư viện online một lần, sau đó chọn lưu metadata. Chỉ lưu tối đa 500 tên game và thời điểm cập nhật trên thiết bị; có nút xóa. Đăng xuất sẽ xóa snapshot offline. Không lưu ID tài khoản, JAR, save hoặc response API vào service worker.
+- Service worker chỉ cache trang offline, JS/CSS/icon cần thiết; mất mạng khi điều hướng thì hiện trang offline. Có manifest/icon 192/512 để trình duyệt hỗ trợ cài app; giao diện cài tùy trình duyệt. Không self-host CheerpJ và không tuyên bố chơi game offline.
+- Kiểm tra trình duyệt có thể chạy lại: `node scripts/check-archive-ui.mjs` (cần Chrome; CHROME_PATH tùy chọn).

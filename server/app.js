@@ -1,3 +1,6 @@
+import {installMetadataReconciliation} from './metadata-reconciliation.js';
+import {installOperations,operationalEvent} from './operations.js';
+import {installDiagnostics} from './diagnostics.js';
 import {installPlayerProfile} from './player-profile.js';
 import {installPreservation} from './preservation.js';
 import {installBootTests} from './boot-tests.js';
@@ -71,6 +74,7 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
     next();
   });
   app.use('/api', async (req, res, next) => {
+    res.once('finish',()=>{if(res.statusCode>=500)operationalEvent(db,'api_errors');if(res.statusCode===429)operationalEvent(db,'rate_limited');});
     res.set('Cache-Control', 'no-store');
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const expected = siteOrigin || `${req.protocol}://${req.get('host')}`;
@@ -167,6 +171,9 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
     if (!game) fail(404, 'Không tìm thấy game hoặc bạn không có quyền truy cập.');
     return game;
   }
+  installOperations(app,{db,member,admin,rate});
+  installDiagnostics(app,{db,member,admin,gameFor,rate,fail});
+  installMetadataReconciliation(app,{db,member,admin,gameFor,rate,fail});
   installPreservation(app,{db,member,admin,gameFor,fail,rate});
   installBootTests(app,{db,member,admin,gameFor,fail,rate});
   installPlayerProgress(app,{db,member,gameFor,rate,fail});
@@ -468,6 +475,7 @@ export async function createApp({ mediaStore = mediaStorage(), deployment = depl
     }
     next();
   });
+  app.get('/sw.js',(req,res)=>{res.set('Cache-Control','no-cache');res.set('Service-Worker-Allowed','/');res.sendFile(resolve(root,'web/sw.js'));});
   app.use(async (req, res) => handler(req, res, { ...staticConfig, public: resolve(root, 'web'), directoryListing: false }));
   app.use((error, req, res, next) => {
     if (res.headersSent) return next(error);

@@ -1,3 +1,4 @@
+import {currentReplay} from './diagnostics.js';
 import {confirmAction,showMessage} from '../../ui/dialogs.js';
 // Keep diagnostics limited to connection status; never capture typed text or credentials.
 const events = [];
@@ -45,12 +46,14 @@ button.onclick = () => {
     };
     dialog.querySelector('[data-check]').onclick = check;
     const form = dialog.querySelector('form');
+    const replayLabel=document.createElement('label');replayLabel.innerHTML='<input type="checkbox"> Đính kèm replay điều khiển đã ghi';form.querySelector('[data-result]').before(replayLabel);
+    const attachReplay=replayLabel.querySelector('input');attachReplay.disabled=!currentReplay();
     form.querySelector('[type=submit]').disabled = !id;
     if(!id)form.querySelector('[data-result]').textContent='Game từ máy chưa có trang cộng đồng để gửi báo lỗi.';
     form.onsubmit = async e => {
         e.preventDefault();const submit=form.querySelector('[type=submit]'), result=form.querySelector('[data-result]');submit.disabled=true;
         try {
-            const response=await fetch('/api/games/'+id+'/report',{method:'POST',headers:{'Content-Type':'application/json','X-Requested-With':'JavaCommunity'},body:JSON.stringify({body:(form.querySelector('textarea').value+'\n\n'+details.value).slice(0,2000)})});
+            const response=await fetch('/api/games/'+id+'/report',{method:'POST',headers:{'Content-Type':'application/json','X-Requested-With':'JavaCommunity'},body:JSON.stringify({body:(form.querySelector('textarea').value+'\n\n'+details.value).slice(0,2000),replay:attachReplay.checked?currentReplay():null})});
             if(!response.ok)throw Error((await response.json()).error||'Không gửi được báo lỗi.');
             result.textContent='Đã gửi báo lỗi.';form.querySelector('textarea').value='';
         }catch(error){result.textContent=error.message;}finally{submit.disabled=false;}
