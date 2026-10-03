@@ -1,5 +1,6 @@
 import {savePlayerJavaSettings} from './profile-sync.js';
 import {readLibraryPreview,writeLibraryPreview} from './library-preview.js';
+import {loadJavaRuntime} from './java-runtime.js';
 import {confirmAction,showMessage} from '../../ui/dialogs.js';
 import {iconButton,compactGameActions} from './library-icons.js?v=20261003-library';
 import {addUpdateCheck} from './catalog-updates.js';
@@ -23,10 +24,11 @@ let state = {
 };
 let defaultSettings = {};
 let libraryQuery='',libraryRecent=false,libraryBusy=false;
+let libraryReady=false;
 function normalizeSearch(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/đ/g,'d');}
 const selectedGames=new Set();
 function lastPlayed(appId){try{return Number(localStorage.getItem('java-emulator.last-played:'+appId))||0;}catch{return 0;}}
-function setupLibraryTools(){
+function setupLibraryTools(render=true){
  iconButton(document.getElementById('clear-current'),'update','Chọn lại tệp game','Chọn lại');
  const tools=document.createElement('div');tools.className='library-tools';
  tools.innerHTML='<input type="search" data-search aria-label="Tìm game đã cài" placeholder="Tìm tên game…"><button type="button" data-recent aria-pressed="false">7 ngày gần đây</button><button type="button" data-measure>Dung lượng</button><button type="button" data-select>Chọn tất cả</button><button type="button" data-remove disabled>Gỡ đã chọn</button><p data-storage role="status"></p>';
@@ -35,11 +37,13 @@ function setupLibraryTools(){
  for(const [selector,icon] of [['[data-recent]','recent'],['[data-measure]','storage'],['[data-select]','select'],['[data-remove]','remove']])iconButton(tools.querySelector(selector),icon);
  tools.querySelector('[data-recent]').onclick=e=>{libraryRecent=!libraryRecent;e.currentTarget.setAttribute('aria-pressed',String(libraryRecent));fillGamesList(state.games);};
  for(const [value,label] of [['recent','Chơi gần nhất'],['size','Dung lượng giảm dần']]){const o=document.createElement('option');o.value=value;o.textContent=label;gameSort.append(o);}
+ for(const selector of ['[data-measure]','[data-select]'])tools.querySelector(selector).disabled=!libraryReady;
+ gameSort.querySelector('[value="size"]').disabled=!libraryReady;
  try{gameSort.value=localStorage.getItem('library-sort')||'installed';}catch{}
  const status=tools.querySelector('[data-storage]');
  tools.querySelector('[data-measure]').onclick=async e=>{e.currentTarget.disabled=true;const control=e.currentTarget;try{status.textContent='Đang đo dung lượng tệp game…';for(const game of state.games){const blob=await cjFileBlob('/files/'+game.appId+'/app.jar');game.bytes=blob?.size||0;}const estimate=await navigator.storage?.estimate?.();status.textContent=`Tệp game: ${(visibleGames(state.games).reduce((n,g)=>n+(g.bytes||0),0)/1048576).toFixed(1)} MB.${estimate?` Toàn bộ dữ liệu website: khoảng ${(estimate.usage/1048576).toFixed(1)} MB.`:''} Dung lượng từng hàng chỉ tính tệp JAR, chưa gồm tiến trình.`;fillGamesList(state.games);}catch(error){status.textContent=error.message;}finally{control.disabled=false;}};
- gameSort.addEventListener('change',()=>{if(gameSort.value==='size')tools.querySelector('[data-measure]').click();});
- fillGamesList(state.games);
+ gameSort.addEventListener('change',()=>{if(libraryReady&&gameSort.value==='size')tools.querySelector('[data-measure]').click();});
+ if(render)fillGamesList(state.games);
  tools.querySelector('[data-select]').onclick=()=>{const visible=visibleGames(state.games);const all=visible.length&&visible.every(g=>selectedGames.has(g.appId));for(const g of visible){if(all)selectedGames.delete(g.appId);else selectedGames.add(g.appId);}fillGamesList(state.games);};
  tools.querySelector('[data-remove]').onclick=async()=>{const targets=state.games.filter(g=>selectedGames.has(g.appId));if(!targets.length||libraryBusy||!await confirmRemoveGame(targets.map(g=>g.name).join(', ')))return;libraryBusy=true;tools.inert=true;document.querySelector('#game-list').inert=true;let removed=0;try{for(const g of targets){await launcherUtil.uninstallApp(g.appId);selectedGames.delete(g.appId);removed++;}status.textContent=`Đã gỡ ${removed} game.`;}catch(error){status.textContent=`Đã gỡ ${removed} game. ${error.message}`;}finally{try{await reloadUI();}catch(error){status.textContent+=' Không thể tải lại danh sách: '+error.message;}finally{libraryBusy=false;tools.inert=false;document.querySelector('#game-list').inert=false;}}};
 }
@@ -51,7 +55,7 @@ async function main() {
         communityUser=user;
         if(previewPending){
             const cached=readLibraryPreview(localStorage,user);
-            if(cached?.length)fillGamesList(cached,true);
+            if(cached){state.games=cached;fillGamesList(cached,true);globalThis.performance?.mark?.('library.preview-rendered');}
         }
     }).catch(()=>{});
     const controls=[...document.querySelectorAll('#main button,#main input,#main select')];
@@ -61,6 +65,10 @@ async function main() {
     document.getElementById('main').setAttribute('aria-busy','true');
     document.getElementById('game-list').textContent='Đang đọc game đã cài…';
     document.getElementById("loading").textContent = "Đang tải bộ chạy Java…";
+    setupLibraryTools(false);
+    gameSort.disabled=false;
+    globalThis.performance?.mark?.('library.search-ready');
+    await loadJavaRuntime(document);
     await cheerpjInit({
         enableDebug: false
     });
@@ -79,9 +87,11 @@ async function main() {
     await userReady;
     previewPending=false;
     await reloadUI();
-    setupLibraryTools();
+    document.querySelectorAll('.library-tools [data-measure],.library-tools [data-select]').forEach(control=>control.disabled=false);
+    gameSort.querySelector('[value="size"]').disabled=false;
     controls.forEach((control,i)=>control.disabled=disabled[i]);
     document.getElementById('main').removeAttribute('aria-busy');
+    globalThis.performance?.mark?.('library.ready');
 
     document.getElementById("loading").style.display = "none";
     document.getElementById("main").style.display = "";
@@ -165,7 +175,9 @@ async function loadGames() {
     if (installedAppsBlob) {
         const installedIds = (await installedAppsBlob.text()).trim().split("\n").filter(Boolean);
 
-        for (const appId of installedIds) {
+        // Four apps at a time overlap storage I/O without flooding the Java filesystem.
+        for (let offset=0;offset<installedIds.length;offset+=4) {
+            const batch=await Promise.all(installedIds.slice(offset,offset+4).map(async appId=>{
             const napp = {
                 appId,
                 name: appId,
@@ -196,7 +208,9 @@ async function loadGames() {
                 }
             }
 
-            apps.push(napp);
+            return napp;
+            }));
+            apps.push(...batch);
         }
     }
 
@@ -238,7 +252,7 @@ async function removeInstalledGame(game, control) {
     catch (error) { await showMessage('Không thể gỡ game: ' + error.message); control.disabled = false; }
 }
 
-function fillGamesList(games, preview=false) {
+function fillGamesList(games, preview=!libraryReady) {
     games = visibleGames(games);
     if(gameSort.value==='recent')games.sort((a,b)=>lastPlayed(b.appId)-lastPlayed(a.appId));
     if(gameSort.value==='size')games.sort((a,b)=>(b.bytes||0)-(a.bytes||0));
@@ -331,7 +345,7 @@ function fillGamesList(games, preview=false) {
     }
     updateSelection();
 }
-function updateSelection(){const button=document.querySelector('[data-remove]');if(button){button.disabled=!selectedGames.size;iconButton(button,'remove',`Gỡ đã chọn (${selectedGames.size})`);}}
+function updateSelection(){const button=document.querySelector('[data-remove]');if(button){button.disabled=!libraryReady||!selectedGames.size;iconButton(button,'remove',`Gỡ đã chọn (${selectedGames.size})`);}}
 
 async function setupAddMode() {
     if (!await confirmDiscard()) {
@@ -684,6 +698,7 @@ async function reloadUI() {
     state.currentGame = null;
 
     state.games = await loadGames();
+    libraryReady=true;
     try{writeLibraryPreview(localStorage,communityUser,state.games.filter(game=>!game.appId.startsWith("community_")||game.appId===communityAppId(communityGameId(game.appId)||"",communityUser)));}catch{}
     const installed=new Set(state.games.map(game=>game.appId));
     for(const id of selectedGames)if(!installed.has(id))selectedGames.delete(id);
