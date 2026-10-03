@@ -180,7 +180,7 @@ function pager(data, r) {
     : `<a class="page-link" href="${esc(href(page))}">${label}</a>`;
   const pages = [];
   for (let page = 1; page <= total; page++) {
-    if (total <= 8 || page === 1 || page === total || Math.abs(page - current) <= 1) pages.push(page);
+    if (page <= 10 || page % 10 === 0 || page === current || page === total) pages.push(page);
   }
   const numbers = pages.map((page, index) => {
     const gap = index && page - pages[index - 1] > 1 ? '<span class="page-gap" aria-hidden="true">…</span>' : '';
