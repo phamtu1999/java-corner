@@ -246,13 +246,14 @@ async function init() {
     setListeners();
 
     window.libmidi = new LibMidi(createUnlockingAudioContext());
-    await window.libmidi.init();
-    window.libmidi.midiPlayer.addEventListener('end-of-media', e => {
-        window.evtQueue.queueEvent({kind: 'player-eom', player: e.target});
-    })
+    const midiReady = window.libmidi.init().then(() => {
+        window.libmidi.midiPlayer.addEventListener('end-of-media', e => {
+            window.evtQueue.queueEvent({kind: 'player-eom', player: e.target});
+        });
+    });
     window.libmedia = new LibMedia();
 
-    await cheerpjInit({
+    const javaReady = cheerpjInit({
         ...networkOptions,
         enableDebug: false,
         natives: {
@@ -346,6 +347,7 @@ async function init() {
         }
     });
 
+    await Promise.all([javaReady, midiReady]);
     document.getElementById("loading").textContent = "Đang mở game…";
 
     window.dispatchEvent(new CustomEvent('game-startup-status',{detail:'Đang nạp bộ giả lập'}));

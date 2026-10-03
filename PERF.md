@@ -48,3 +48,22 @@ Raw controlled samples are in `reports/library-performance/game-preload.json`.
 permission/network errors, inconclusive cache fallback and live installed-file
 checks. `tests/library-performance.test.js` checks that direct navigation begins
 preparation before Java loading.
+
+## Installed game startup
+
+The player now fetches the Java loader concurrently with account profile
+restoration instead of blocking HTML parsing first. Preference modules still
+wait for the restored profile. MIDI initialization overlaps Java initialization;
+both finish before the emulator library or game starts. Community permission
+checks and local installed-file checks remain in place.
+
+Three controlled samples for independent waits (loader 300 ms, profile 100 ms,
+MIDI 200 ms, Java 300 ms) give median **902 ms serial / 600 ms overlapping**.
+These synthetic timings demonstrate the removed waits; they exclude actual
+module imports, authorization, JAR reads and game startup. They are not a
+production time-to-play claim. Raw samples are retained in
+`reports/library-performance/player-startup.json`.
+
+`tests/player-startup.test.js` uses deferred promises against the entry and
+initialization code to verify overlap, restoration before preference imports,
+and Java/MIDI readiness before any game execution.
