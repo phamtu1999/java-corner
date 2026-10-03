@@ -67,3 +67,19 @@ production time-to-play claim. Raw samples are retained in
 `tests/player-startup.test.js` uses deferred promises against the entry and
 initialization code to verify overlap, restoration before preference imports,
 and Java/MIDI readiness before any game execution.
+
+## Cached list recovery
+
+The preview validator previously rejected the entire cached list if one icon
+was not an explicitly typed image data URL. The live Java icon reader uses a
+FileReader on filesystem Blobs, which may not carry an image MIME type. Cached
+PNG data with an absent or binary MIME type is now normalized to `image/png`;
+other unsupported icons get a local placeholder without hiding game names.
+Both existing cache reads and future writes are normalized. Account isolation
+and the live Java storage refresh remain unchanged.
+
+Regression checks reproduce a binary PNG icon in the actual startup preview
+reader and verify that the cached list appears while the Java loader is still
+unresolved. Additional checks cover malformed icons and unavailable storage.
+This is a cache recovery fix, not a measured production latency claim; a first
+visit without cached metadata must still wait for the Java filesystem.

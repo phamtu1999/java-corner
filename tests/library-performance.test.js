@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {loadJavaRuntime} from '../web/emulator/src/java-runtime.js';
+import {readLibraryPreview} from '../web/emulator/src/library-preview.js';
 
 test('Java loader yields to the library UI and reports load failures', async () => {
     const scripts=[];
@@ -65,15 +66,15 @@ test('cached library browsing is ready while Java download is still pending', as
     const loading={};
     const sort={disabled:false};
     const dataControl={disabled:false};
-    const cache=[{appId:'local_game',name:'Cached game',icon:'data:image/png;base64,AA=='}];
+    const cache=[{appId:'local_game',name:'Cached game',icon:'data:application/octet-stream;base64,iVBORw0KGgoAAA=='}];
     let failDownload,toolCalls=0,preview,javaStarted=false;
     const pending=new Promise((resolve,reject)=>{failDownload=reject;});
     const state={games:[]};
     const main=vm.runInNewContext(body+';main',{
-        state,communityUser:null,localStorage:{},gameSort:sort,
+        state,communityUser:null,localStorage:{getItem:()=>JSON.stringify(cache)},gameSort:sort,
         URLSearchParams,location:{search:''},
         document:{querySelectorAll:()=>[sort,dataControl],getElementById:id=>id==='main'?mainElement:id==='loading'?loading:{}},
-        currentUser:async()=>null,readLibraryPreview:()=>cache,
+        currentUser:async()=>null,readLibraryPreview,
         fillGamesList:(games,isPreview)=>{preview={games,isPreview};},
         setupLibraryTools:render=>{assert.equal(render,false);toolCalls++;},
         loadJavaRuntime:()=>pending,cheerpjInit:()=>{javaStarted=true;}
@@ -85,9 +86,10 @@ test('cached library browsing is ready while Java download is still pending', as
     assert.equal(sort.disabled,false);
     assert.equal(dataControl.disabled,true,'save writes stay disabled until Java is ready');
     assert.equal(javaStarted,false);
-    assert.equal(preview.games,cache);
+    assert.equal(preview.games[0].name,cache[0].name);
+    assert.equal(preview.games[0].icon,'data:image/png;base64,iVBORw0KGgoAAA==');
     assert.equal(preview.isPreview,true);
-    assert.equal(state.games,cache,'search must filter the cached games');
+    assert.equal(state.games,preview.games,'search must filter the cached games');
     failDownload(new Error('offline'));
     await assert.rejects(initializing,/offline/);
 });
