@@ -26,3 +26,25 @@ DevTools; they transmit no telemetry. Production p75/RUM has not been measured.
 
 Benchmark fixtures and raw samples are retained locally in
 `reports/library-performance/` (ignored by Git).
+
+## Community game startup
+
+Direct `/library?game=…` navigation now resolves game/account metadata while
+Java starts. When that account's valid preview lists no installed copy, the JAR
+download also starts immediately. An installed or unknown preview defers the
+download until the live Java file check. Installation and save synchronization
+still complete before player navigation, and a live installed JAR takes priority
+over stale preview data. Early request failures are settled and shown by the
+existing retry flow rather than becoming unhandled rejections.
+
+Three controlled Node samples with 300 ms runtime startup, 30 ms metadata and
+200 ms download give median **531 ms before / 300 ms after** for these independent
+pre-installation stages. This measures overlapping waits, not real Java startup
+or time until a game is playable. Two production HTTP samples for the screenshot's
+1,294,797-byte JAR took 1.98 s and 1.33 s; network throughput remains a limit.
+Raw controlled samples are in `reports/library-performance/game-preload.json`.
+
+`tests/community-preload.test.js` covers account-scoped lookup, byte reuse,
+permission/network errors, inconclusive cache fallback and live installed-file
+checks. `tests/library-performance.test.js` checks that direct navigation begins
+preparation before Java loading.

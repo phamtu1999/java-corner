@@ -71,6 +71,7 @@ test('cached library browsing is ready while Java download is still pending', as
     const state={games:[]};
     const main=vm.runInNewContext(body+';main',{
         state,communityUser:null,localStorage:{},gameSort:sort,
+        URLSearchParams,location:{search:''},
         document:{querySelectorAll:()=>[sort,dataControl],getElementById:id=>id==='main'?mainElement:id==='loading'?loading:{}},
         currentUser:async()=>null,readLibraryPreview:()=>cache,
         fillGamesList:(games,isPreview)=>{preview={games,isPreview};},
@@ -89,4 +90,22 @@ test('cached library browsing is ready while Java download is still pending', as
     assert.equal(state.games,cache,'search must filter the cached games');
     failDownload(new Error('offline'));
     await assert.rejects(initializing,/offline/);
+});
+
+test('direct game navigation starts preparation before the Java loader finishes', async () => {
+    const source=fs.readFileSync(new URL('../web/emulator/src/launcher.js',import.meta.url),'utf8');
+    const body=source.slice(source.indexOf('async function main()'),source.indexOf('async function maybeReadCheerpJFileText'));
+    const calls=[];
+    const elements={main:{style:{},setAttribute(){}},loading:{},'game-list':{}};
+    const main=vm.runInNewContext(body+';main',{
+        state:{games:[]},communityUser:null,localStorage:{},gameSort:{},
+        URLSearchParams,location:{search:'?game=example'},
+        document:{querySelectorAll:()=>[],getElementById:id=>elements[id]},
+        currentUser:async()=>null,readLibraryPreview:()=>null,
+        prepareCommunityGame:id=>{assert.equal(id,'example');calls.push('prepare');return Promise.resolve({error:Error('offline')});},
+        showGameDownloadProgress(){},setupLibraryTools(){},
+        loadJavaRuntime:async()=>{calls.push('java');throw Error('stop at runtime');},
+    });
+    await assert.rejects(main(),/stop at runtime/);
+    assert.deepEqual(calls,['prepare','java']);
 });

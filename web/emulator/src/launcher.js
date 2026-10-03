@@ -1,6 +1,7 @@
 import {savePlayerJavaSettings} from './profile-sync.js';
 import {readLibraryPreview,writeLibraryPreview} from './library-preview.js';
 import {loadJavaRuntime} from './java-runtime.js';
+import {prepareCommunityGame} from './community-preload.js';
 import {confirmAction,showMessage} from '../../ui/dialogs.js';
 import {iconButton,compactGameActions} from './library-icons.js?v=20261003-library';
 import {addUpdateCheck} from './catalog-updates.js';
@@ -50,6 +51,10 @@ function setupLibraryTools(render=true){
 function visibleGames(games){return games.filter(game=>{if(game.appId.startsWith('community_')){const source=communityGameId(game.appId);if(!source||game.appId!==communityAppId(source,communityUser))return false;}return normalizeSearch(game.name).includes(libraryQuery)&&(!libraryRecent||lastPlayed(game.appId)>Date.now()-7*86400000);});}
 
 async function main() {
+    const gameId = new URLSearchParams(location.search).get('game');
+    const preparedGame = gameId ? prepareCommunityGame(gameId, {
+        onProgress: showGameDownloadProgress,
+    }) : null;
     let previewPending=true;
     const userReady=currentUser().then(user=>{
         communityUser=user;
@@ -111,8 +116,7 @@ async function main() {
       finally{cheerpOSRemoveStringFile(path);}
     }});
 
-    const gameId = new URLSearchParams(location.search).get("game");
-    if (gameId) await openCommunityGame(gameId);
+    if (gameId) await openCommunityGame(gameId, preparedGame);
 }
 
 async function maybeReadCheerpJFileText(path) {
@@ -759,15 +763,31 @@ async function doExportData() {
     }
 }
 
-async function openCommunityGame(id) {
+function showGameDownloadProgress(received, total) {
+    document.getElementById('loading').textContent = total
+        ? `Đang tải game: ${Math.min(100, Math.round(received / total * 100))}%`
+        : `Đang tải game: ${(received / 1048576).toFixed(1)} MB`;
+}
+
+async function openCommunityGame(id, preparedGame = null) {
     const loading = document.getElementById('loading');
     loading.style.display = '';
     loading.textContent = 'Đang chuẩn bị game từ thư viện…';
     document.getElementById('main').style.display = 'none';
     try {
-        const { game, appId } = await resolveCommunityGame(id);
+        const prepared = preparedGame ? await preparedGame : null;
+        if (prepared?.error) throw prepared.error;
+        const {context, bytes: pendingBytes} = prepared?.value || {context: await resolveCommunityGame(id)};
+        const {game, appId} = context;
         if (!await cjFileBlob('/files/' + appId + '/app.jar')) {
-            const bytes=await downloadGame('/api/games/'+encodeURIComponent(game.id)+'/file',(received,total)=>{loading.textContent=total?`Đang tải game: ${Math.min(100,Math.round(received/total*100))}%`:`Đang tải game: ${(received/1048576).toFixed(1)} MB`;});
+            let bytes;
+            if (pendingBytes) {
+                const result = await pendingBytes;
+                if (result.error) throw result.error;
+                bytes = result.value;
+            } else {
+                bytes = await downloadGame('/api/games/' + encodeURIComponent(game.id) + '/file', showGameDownloadProgress);
+            }
             loading.textContent='Đang cài game vào thư viện…';
             await processGameFile(bytes, game.filename);
             await state.lastLoader.setAppId(appId);
