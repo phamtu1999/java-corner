@@ -7,8 +7,8 @@ export const phoneSkins = {
 };
 export const layouts = ['screen', 'split', 'bottom', 'nokia', ...Object.keys(phoneSkins)];
 
-export function resolveLayout(saved, mobile) {
-    return layouts.includes(saved) ? saved : mobile ? 'bottom' : 'screen';
+export function resolveLayout(saved) {
+    return layouts.includes(saved) ? saved : 'nokia';
 }
 
 export function fitScale(width, height, canvasWidth, canvasHeight, fractional) {
@@ -21,7 +21,7 @@ export function initLayout(onChange) {
     const select = document.getElementById('layout');
     let saved;
     try { saved = localStorage.getItem(key)||localStorage.getItem('java-emulator.layout'); } catch {}
-    select.value = resolveLayout(saved, new URLSearchParams(location.search).get('mobile') === '1');
+    select.value = resolveLayout(saved);
     const apply = () => {
         document.body.dataset.layout = phoneSkins[select.value] ? 'nokia' : select.value;
         document.body.dataset.skin = phoneSkins[select.value] ? select.value : '';
