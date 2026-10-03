@@ -1,5 +1,5 @@
 import {checkUpload} from '/ui/deployment.js';
-import {iconButton} from './library-icons.js';
+import {iconButton} from './library-icons.js?v=20261003-library';
 export function setupCloudSave({user,exportData,importData,reload,getGames,restoreGame}) {
   const button=document.createElement('button');button.className='btn cloud-save-trigger';button.type='button';button.textContent='☁ Bản lưu tài khoản';
   document.getElementById('export-data-btn').after(button);

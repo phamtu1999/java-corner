@@ -1,11 +1,11 @@
 import {savePlayerJavaSettings} from './profile-sync.js';
 import {readLibraryPreview,writeLibraryPreview} from './library-preview.js';
 import {confirmAction,showMessage} from '../../ui/dialogs.js';
-import {iconButton,compactGameActions} from './library-icons.js';
+import {iconButton,compactGameActions} from './library-icons.js?v=20261003-library';
 import {addUpdateCheck} from './catalog-updates.js';
 import {addGameBackup} from './game-backups.js';
 import { currentUser, communityAppId, communityGameId, resolveCommunityGame } from "./community-bridge.js";
-import {setupCloudSave} from './cloud-save.js?v=20260917-2';
+import {setupCloudSave} from './cloud-save.js?v=20261003-library';
 let communityUser = null;
 import {downloadGame} from './download-progress.js';
 
@@ -27,9 +27,9 @@ function normalizeSearch(value){return String(value||'').normalize('NFD').replac
 const selectedGames=new Set();
 function lastPlayed(appId){try{return Number(localStorage.getItem('java-emulator.last-played:'+appId))||0;}catch{return 0;}}
 function setupLibraryTools(){
- iconButton(document.getElementById('clear-current'),'update','Chọn lại tệp game');
+ iconButton(document.getElementById('clear-current'),'update','Chọn lại tệp game','Chọn lại');
  const tools=document.createElement('div');tools.className='library-tools';
- tools.innerHTML='<input type="search" data-search aria-label="Tìm game đã cài" placeholder="Tìm game đã cài…"><button type="button" data-recent aria-pressed="false">Đã chơi trong 7 ngày</button><button type="button" data-measure>Xem dung lượng</button><button type="button" data-select>Chọn kết quả đang hiện</button><button type="button" data-remove disabled>Gỡ đã chọn</button><p data-storage role="status"></p>';
+ tools.innerHTML='<input type="search" data-search aria-label="Tìm game đã cài" placeholder="Tìm tên game…"><button type="button" data-recent aria-pressed="false">7 ngày gần đây</button><button type="button" data-measure>Dung lượng</button><button type="button" data-select>Chọn tất cả</button><button type="button" data-remove disabled>Gỡ đã chọn</button><p data-storage role="status"></p>';
  document.querySelector('#game-list').before(tools);
  tools.querySelector('[data-search]').oninput=e=>{libraryQuery=normalizeSearch(e.currentTarget.value.trim());fillGamesList(state.games);};
  for(const [selector,icon] of [['[data-recent]','recent'],['[data-measure]','storage'],['[data-select]','select'],['[data-remove]','remove']])iconButton(tools.querySelector(selector),icon);
@@ -247,7 +247,17 @@ function fillGamesList(games, preview=false) {
         games.sort((a,b) => direction * a.name.localeCompare(b.name, 'vi', {numeric:true, sensitivity:'base'}));
     }
     const container = document.getElementById("game-list");
-    container.textContent = games.length ? "" : "Chưa có game. Thêm tệp .jar để bắt đầu bộ sưu tập.";
+    container.textContent = "";
+    if(!games.length){
+        const empty=document.createElement('div');empty.className='library-empty';
+        const title=document.createElement('h2');
+        title.textContent=libraryQuery||libraryRecent?'Không tìm thấy game':'Chưa có game trên máy';
+        const description=document.createElement('p');
+        description.textContent=libraryQuery||libraryRecent?'Thử tên khác hoặc bỏ bộ lọc 7 ngày gần đây.':'Chọn tệp .jar trong phần Thêm game, hoặc cài game từ kho.';
+        empty.append(title,description);
+        if(!libraryQuery&&!libraryRecent){const browse=document.createElement('a');browse.href='/games';browse.textContent='Khám phá kho game';empty.append(browse);}
+        container.append(empty);
+    }
 
     document.getElementById("installed-count").textContent = games.length;
 

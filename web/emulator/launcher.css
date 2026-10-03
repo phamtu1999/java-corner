@@ -143,32 +143,40 @@ summary h3 { display: inline; font-size: inherit; }
 .game-item{grid-template-columns:24px minmax(120px,1fr) repeat(6,auto)}
 @media(max-width:1100px){.game-item{grid-template-columns:24px minmax(0,1fr) auto}.game-item>input[type=checkbox],.game-item>.game-entry{grid-row:1 / span 6}.game-item>.game-action{grid-column:3}}
 
-/* Compact library actions, grouped independently from the game title. */
+/* Readable library actions and an inline management disclosure. */
 #game-list .game-item{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:10px;padding:12px 10px;align-items:center}
 #game-list .game-item>input[type=checkbox],#game-list .game-item>.game-entry{grid-row:auto;grid-column:auto}
-.game-row-actions{display:flex;align-items:center;gap:5px;flex-wrap:nowrap}
-.library-icon-button{display:inline-flex!important;align-items:center;justify-content:center;box-sizing:border-box;width:36px!important;height:36px;min-width:36px!important;padding:8px!important;flex:none;border-radius:5px!important}
+.game-row-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:320px}
+.library-icon-button{display:inline-flex!important;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;width:auto!important;min-height:44px;min-width:44px!important;padding:9px 12px!important;flex:none;border-radius:4px!important}
 .library-icon-button svg{display:block;width:19px;height:19px;pointer-events:none}
+.game-item .library-icon-button{min-height:44px}
 .library-icon-button:focus-visible{outline:2px solid #007aaa;outline-offset:2px}
-.game-row-actions .remove-action{order:10}
+.game-management{position:relative}
+.game-management>summary{box-sizing:border-box;min-height:44px;padding:11px 12px;border:1px solid #cbd6df;border-radius:4px;background:white;color:#365367;font-size:12px;font-weight:600;cursor:pointer}
+.game-management>summary:hover{background:#eef5f9}
+.game-management>summary:focus-visible{outline:2px solid #007aaa;outline-offset:2px}
+.game-management-options{display:flex;flex-direction:column;gap:6px;padding:8px 0 0}
+.game-management-options .game-action{justify-content:flex-start}
+.game-management-options .remove-action{border-top:1px solid #e5ccd0;margin-top:4px}
+.game-row-actions:has(.game-management[open]){align-items:flex-start}
 #game-list .game-info{font-size:14px;line-height:1.45}
-#game-list .game-info small{font-size:11px;line-height:1.45;margin-top:3px}
+#game-list .game-info small{font-size:12px;line-height:1.5;margin-top:4px;color:#566675;font-weight:400}
 #game-list .game-item:hover{background:#f6fbfe}
 .library-tools{align-items:end;gap:8px}
 .library-tools [data-storage]:empty{display:none}
-@media(max-width:650px){#game-list .game-item{grid-template-columns:20px minmax(0,1fr);gap:8px 10px}.game-row-actions{grid-column:2;justify-content:flex-start;flex-wrap:wrap}.library-icon-button{width:40px!important;height:40px;min-width:40px!important}.game-row-actions{gap:4px}}
+@media(max-width:1050px){#game-list .game-item{grid-template-columns:20px minmax(0,1fr);gap:10px}.game-row-actions{grid-column:2;max-width:none}}
 
 .library-tools{justify-content:flex-end;padding:8px 10px}
 .library-tools [data-recent][aria-pressed="true"]{background:#dff4ff;color:#007aaa;border-color:#00a1db;box-shadow:inset 0 0 0 1px #00a1db}
 
 /* Mobile layout: keep controls readable and prevent action rows from forcing overflow. */
 @media(max-width:600px){
-  main{width:100%;overflow:hidden}
+  main{width:100%;overflow:visible}
   .page-heading{padding:10px 8px;margin-bottom:0;gap:10px}
   .page-heading>div:first-child{min-width:0;flex:1 1 180px}
   .page-heading h1{font-size:17px}
   .page-description{line-height:1.45}
-  .data-controls{width:auto;flex:0 0 auto;gap:6px}
+  .data-controls{width:100%;flex:1 1 100%;gap:8px}
   .data-controls button{min-width:40px;min-height:40px;padding:7px 8px}
   .workspace{width:100%;padding:0;gap:8px}
   .library,.installer,.keyboard-controls{min-width:0}
@@ -176,11 +184,11 @@ summary h3 { display: inline; font-size: inherit; }
   .library-tools{padding:8px;gap:8px}
   .library-tools label:first-child{flex-basis:100%;width:100%}
   .library-tools input[type=search]{width:100%;height:40px;flex-basis:100%;font-size:16px}
-  .library-tools>button{flex:1 1 42px;min-width:42px;min-height:40px;padding:7px 5px}
+  .library-tools>button{flex:1 1 auto;min-width:44px;min-height:44px;padding:9px 10px}
   #game-list .game-item{padding:9px 8px;gap:6px 8px}
   #game-list .game-entry{min-width:0}
   #game-list .game-row-actions{gap:4px}
-  #game-list .library-icon-button{width:38px!important;height:38px;min-width:38px!important;padding:7px!important}
+  #game-list .library-icon-button{width:auto!important;min-height:44px;min-width:44px!important;padding:9px 10px!important}
   .installer{margin:0 8px;width:calc(100% - 16px)}
   .upload-area{padding:10px 8px}
   .keyboard-controls{padding:10px 8px}
@@ -188,8 +196,51 @@ summary h3 { display: inline; font-size: inherit; }
 @media(max-width:360px){
   .site-nav a{font-size:11px;padding-left:2px;padding-right:2px}
   #game-list .game-row-actions{gap:4px}
-  #game-list .library-icon-button{width:40px!important;min-width:40px!important}
+  #game-list .library-icon-button{width:auto!important;min-width:44px!important}
 }
+
+/* Keep the brand in the navigation and the primary play action. */
+body[data-page='local'] .page-heading{background:#fff;color:#243746;padding:24px 18px 20px;border-bottom:1px solid var(--line);margin-bottom:16px}
+body[data-page='local'] h1{font-size:24px;line-height:1.3}
+body[data-page='local'] .page-description{color:#566675;font-size:14px;line-height:1.5;margin-top:8px}
+body[data-page='local'] .workspace{padding:0 18px;gap:18px;grid-template-columns:minmax(0,1fr) 310px}
+body[data-page='local'] .list-heading{background:#fff;color:#243746;border-top:0;padding:0 0 14px;gap:12px}
+body[data-page='local'] .installed-count{background:#edf5fa;border:0;color:#365367!important;font-size:12px;min-width:24px;line-height:24px;border-radius:4px}
+body[data-page='local'] .library-sort{color:#566675}
+body[data-page='local'] .data-controls button{border:1px solid #cbd6df;background:#fff;color:#365367;min-height:44px}
+body[data-page='local'] .library-tools{background:#f5f8fa;padding:12px;border:1px solid #dce5ed;gap:8px;justify-content:flex-start}
+body[data-page='local'] .library-tools input[type=search]{flex:1 1 100%;width:100%;height:44px;border:1px solid #a9b9c5;border-radius:4px;font-size:14px;color:#243746;caret-color:#007aaa}
+body[data-page='local'] input::placeholder{color:#566675;opacity:1}
+body[data-page='local'] .library-tools button{background:#fff;border:1px solid #cbd6df;color:#365367;font-size:12px}
+body[data-page='local'] button:disabled{opacity:.6;cursor:not-allowed}
+body[data-page='local'] .library-tools [data-recent][aria-pressed=true]{background:#e1f3fb;color:#005d85;border-color:#007aaa;box-shadow:none}
+body[data-page='local'] .game-item{min-height:100px}
+#game-list .game-item:has(.game-management[open]){align-items:start}
+body[data-page='local'] .game-item .icon{width:44px;height:44px}
+body[data-page='local'] .game-item .touch-action{background:#007faa;color:#fff;border-color:#007faa;font-weight:600}
+body[data-page='local'] .game-item .touch-action:hover{background:#00698c;border-color:#00698c}
+body[data-page='local'] .save-button,body[data-page='local'] .primary{background:#007faa;border-color:#007faa;color:#fff}
+body[data-page='local'] .game-item .game-action:disabled{opacity:.6}
+body[data-page='local'] .library-note{background:transparent;padding:16px 0;color:#566675;font-size:12px}
+body[data-page='local'] .library-note strong{color:#365367}
+body[data-page='local'] .installer{padding:16px;border-color:#dce5ed;width:100%}
+body[data-page='local'] .add-edit-header{background:transparent;color:#243746;padding:0;margin:0 0 16px;min-height:44px}
+body[data-page='local'] #clear-current{color:#365367;border:1px solid #cbd6df;text-decoration:none;background:#fff}
+body[data-page='local'] h2{font-size:16px}
+body[data-page='local'] .upload-area{background:#f5f8fa;padding:14px;border:1px dashed #a9b9c5}
+body[data-page='local'] .upload-help,.browse-games{font-size:12px;color:#566675;line-height:1.6;margin:0 0 12px}
+body[data-page='local'] .browse-games{margin:14px 0 0}
+body[data-page='local'] input[type=file]{box-sizing:border-box;font-size:12px;padding:0;border:0;background:transparent;min-width:0}
+body[data-page='local'] input[type=file]::file-selector-button{min-height:44px;border:1px solid #b6c8d4;border-radius:4px;padding:8px 10px;background:#fff;color:#243746;margin-right:8px;cursor:pointer}
+body[data-page='local'] .compatibility{color:#566675;margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+body[data-page='local'] .keyboard-controls{padding:14px 0;color:#365367}
+body[data-page='local'] .keyboard-controls summary,body[data-page='local'] .compatibility summary{min-height:44px;align-content:center;cursor:pointer}
+.library-empty h2{margin:0 0 8px;color:#243746;font-size:18px}
+.library-empty p{margin:0 0 18px;font-size:14px;line-height:1.6;max-width:52ch;color:#566675}
+body[data-page='local'] a:focus-visible,body[data-page='local'] input:focus-visible{outline:2px solid #007aaa;outline-offset:3px}
+body[data-page='local'] ::selection{background:#c8eaf8;color:#163f59}
+@media(max-width:850px){body[data-page='local'] .workspace{grid-template-columns:minmax(0,1fr)}body[data-page='local'] .installer{margin:0;grid-column:1;grid-row:2}.game-row-actions{max-width:none}}
+@media(max-width:600px){body[data-page='local'] .page-heading{padding:20px 12px 16px;margin-bottom:12px}body[data-page='local'] h1{font-size:22px}body[data-page='local'] .workspace{padding:0 12px;gap:16px}body[data-page='local'] .list-heading{padding-bottom:12px}body[data-page='local'] .library-sort{width:100%;justify-content:space-between}body[data-page='local'] .library-sort select{flex:1;max-width:210px;min-height:44px}body[data-page='local'] .library-tools input[type=search]{font-size:16px}body[data-page='local'] .game-item{padding:16px 0}body[data-page='local'] .installer{padding:14px}body[data-page='local'] .data-controls button{flex:1 1 auto}body[data-page='local'] .game-row-actions{gap:8px}}
 
 @media(max-width:600px){
  body[data-page='local'] main{overflow:visible;min-width:0}

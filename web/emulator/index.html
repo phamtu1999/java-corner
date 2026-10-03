@@ -8,14 +8,14 @@
     <title>Game trên máy · Java Corner</title>
     <link rel="icon" href="/ui/favicon.svg">
     <link rel="stylesheet" href="/ui/site.css?v=20260919-mobile-space">
-    <link rel="stylesheet" href="/emulator/launcher.css?v=20260919-mobile-space">
+    <link rel="stylesheet" href="/emulator/launcher.css?v=20261003-library">
   </head>
 
   <body data-page="local">
     <header id="site-header"></header>
     <div id="loading" role="status">Đang tải trình giả lập…</div>
     <main id="main" style="display: none" tabindex="-1">
-      <div class="page-heading"><div><h1>Game trên máy</h1><p class="page-description">Chơi tệp JAR và quản lý bản lưu trong trình duyệt này.</p></div>
+      <div class="page-heading"><div><h1>Game trên máy</h1><p class="page-description">Bộ sưu tập của bạn trong trình duyệt này. Chọn game để chơi tiếp.</p></div>
         <div class="data-controls">
           <button class="btn" id="import-data-btn"><svg class="launcher-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg>Nhập bản lưu</button>
           <button class="btn" id="export-data-btn"><svg class="launcher-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m-4 4 4-4 4 4M4 16v5h16v-5"/></svg>Xuất bản lưu</button>
@@ -27,7 +27,7 @@
         <section class="library" aria-label="Game đã cài">
           <div class="list-heading"><span class="section-title"><svg class="launcher-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Game đã cài <span id="installed-count" class="installed-count">0</span></span><label class="library-sort">Sắp xếp <select id="game-sort"><option value="installed">Thứ tự cài đặt</option><option value="az">Tên A–Z</option><option value="za">Tên Z–A</option></select></label></div>
           <div id="game-list" class="game-list" aria-live="polite"></div>
-          <div class="library-note"><p>Lưu trên trình duyệt này. Xuất bản lưu trước khi chuyển máy hoặc xóa dữ liệu.</p></div>
+          <div class="library-note"><p><strong>Giữ an toàn tiến trình chơi.</strong> Xuất bản lưu trước khi chuyển máy hoặc xóa dữ liệu trình duyệt.</p></div>
 
         </section>
         <section class="installer" aria-labelledby="add-edit-text">
@@ -38,8 +38,10 @@
       <p id="upload-error" role="alert" style="color: #a51d25"></p><div id="file-input-step">
         <div class="form-group upload-area">
           <label for="game-file-input">Chọn game .jar từ máy</label>
-          <input type="file" id="game-file-input" accept=".jar" />
+          <p class="upload-help" id="game-file-help">Có tệp game sẵn? Chọn tệp để cài vào bộ sưu tập.</p>
+          <input type="file" id="game-file-input" accept=".jar" aria-describedby="game-file-help" />
         </div>
+        <p class="browse-games">Chưa có tệp game? <a href="/games">Tìm trong kho game</a></p>
       </div>
       <div id="file-input-jad-step" style="display: none">
         <div id="warning-message" class="warning-message">
@@ -220,6 +222,6 @@
     <footer id="site-footer"></footer>
     <script type="module" src="/ui/site.js?v=20260919-archive"></script>
     <script src="https://cjrtnc.leaningtech.com/20260317_2978/loader.js"></script>
-    <script type="module" src="/emulator/src/launcher.js?v=20260919-profile-sync"></script>
+    <script type="module" src="/emulator/src/launcher.js?v=20261003-library"></script>
   </body>
 </html>
